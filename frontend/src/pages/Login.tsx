@@ -84,17 +84,19 @@ export default function Login() {
     let rawMsg = ''
     if (typeof err === 'string') {
       rawMsg = err
+    } else if (err.message && typeof err.message === 'string') {
+      rawMsg = err.message
+    } else if (err.error_description && typeof err.error_description === 'string') {
+      rawMsg = err.error_description
     } else if (err.response?.data?.detail) {
       rawMsg = typeof err.response.data.detail === 'string' ? err.response.data.detail : JSON.stringify(err.response.data.detail)
-    } else if (err.message) {
-      rawMsg = err.message
-    } else if (err.error_description) {
-      rawMsg = err.error_description
     } else if (err.msg) {
-      rawMsg = err.msg
+      rawMsg = String(err.msg)
+    } else if (err.error && typeof err.error === 'string') {
+      rawMsg = err.error
     } else {
       try {
-        rawMsg = JSON.stringify(err)
+        rawMsg = JSON.stringify(err, Object.getOwnPropertyNames(err))
       } catch {
         rawMsg = String(err)
       }
@@ -114,7 +116,20 @@ export default function Login() {
     }
 
     const lowerMsg = rawMsg.toLowerCase().trim()
-    const code = (err.code || err.error || '').toString().toLowerCase().trim()
+    const code = (err.code || err.error || err.status || err.statusCode || '').toString().toLowerCase().trim()
+
+    // 0. NETWORK / FETCH ERRORS
+    if (
+      lowerMsg.includes('failed to fetch') ||
+      lowerMsg.includes('networkerror') ||
+      lowerMsg.includes('network error') ||
+      lowerMsg.includes('fetch failed') ||
+      lowerMsg.includes('cors')
+    ) {
+      return {
+        message: 'Network Error: Unable to connect to Supabase Auth. Please check your internet connection or verify your Supabase project URL.',
+      }
+    }
 
     // 1. INVALID CREDENTIALS ON LOGIN
     if (
@@ -216,14 +231,14 @@ export default function Login() {
       }
     }
 
-    // Fallback: Log warning for unmapped error type
+    // Fallback: Return rawMsg or error string directly
     console.warn('UNMAPPED AUTH ERROR TYPE:', { err, code, rawMsg })
 
-    if (rawMsg && rawMsg !== '{}') {
+    if (rawMsg && rawMsg !== '{}' && rawMsg !== '[]') {
       return { message: rawMsg }
     }
 
-    return { message: 'An error occurred. Please check your details and try again.' }
+    return { message: code ? `Authentication Error (${code})` : 'An unexpected authentication error occurred.' }
   }
 
   // Handle Signup (Frontend -> Supabase Auth directly)
