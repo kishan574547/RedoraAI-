@@ -217,14 +217,15 @@ export default function Login() {
 
     setLoading(true)
 
-    // Register user in local backend database first & dispatch unique email OTP
+    // Register user in local backend database first
     try {
       const res = await api.post('/auth/register', { email: email.trim(), password })
-      setMode('verify_signup')
-      setSuccessMessage(res.data?.message || `Account created! A unique 6-digit verification code has been sent to ${email.trim()}.`)
-      setCooldown(60)
-      setLoading(false)
-      return
+      if (res.data?.access_token) {
+        localStorage.setItem('access_token', res.data.access_token)
+        sessionStorage.setItem('is_logged_in', 'true')
+        navigate('/')
+        return
+      }
     } catch (bErr: any) {
       if (bErr.response?.data?.detail) {
         const detail = bErr.response.data.detail
@@ -239,9 +240,9 @@ export default function Login() {
       }
     }
 
-    // Backup Supabase signup call
+    // Supabase signup call
     try {
-      await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -250,13 +251,23 @@ export default function Login() {
           },
         },
       })
+      if (data?.session?.access_token) {
+        localStorage.setItem('access_token', data.session.access_token)
+        sessionStorage.setItem('is_logged_in', 'true')
+        navigate('/')
+        return
+      }
+      if (error) {
+        setErrorInfo(mapAuthError(error, 'signup'))
+        setLoading(false)
+        return
+      }
     } catch (err: any) {
       console.warn('Supabase signup notice:', err)
     }
 
-    setMode('verify_signup')
-    setSuccessMessage(`Account created! A 6-digit verification code has been sent to ${email.trim()}.`)
-    setCooldown(60)
+    setMode('login')
+    setSuccessMessage(`Account created successfully for ${email.trim()}! Please sign in below.`)
     setLoading(false)
   }
 
