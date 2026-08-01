@@ -1,6 +1,6 @@
 # mobile
 
-A new Flutter project.
+A flutter project 
 
 ## Getting Started
 
