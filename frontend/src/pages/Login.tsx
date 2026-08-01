@@ -193,34 +193,24 @@ export default function Login() {
       }
     }
 
-    // 6. RATE LIMITING / SMTP / TOO MANY REQUESTS
+    // 6. EMAIL DELIVERY / RATE LIMITING / TOO MANY REQUESTS
     if (
       lowerMsg.includes('error sending confirmation email') ||
-      lowerMsg.includes('confirmation email')
+      lowerMsg.includes('confirmation email') ||
+      lowerMsg.includes('smtp')
     ) {
       return {
-        message: 'Unable to send verification email. Please verify your SMTP / Email Provider settings in Supabase Dashboard.',
-      }
-    }
-
-    if (
-      lowerMsg.includes('testing domain') ||
-      lowerMsg.includes('you can only send to') ||
-      lowerMsg.includes('validation_error')
-    ) {
-      return {
-        message: 'Email delivery failed: Email provider is in testing mode and can only send verification emails to the registered account owner email.',
+        message: 'Unable to send verification email. Please check your Supabase Auth Email Provider configuration in Supabase Dashboard.',
       }
     }
 
     if (
       lowerMsg.includes('rate limit') ||
       lowerMsg.includes('over_email_send_rate_limit') ||
-      lowerMsg.includes('smtp') ||
       lowerMsg.includes('too many requests')
     ) {
       return {
-        message: 'Too many requests or email delivery limit reached. Please wait a moment and try again.',
+        message: 'Too many requests or email rate limit reached. Please wait a moment and try again.',
       }
     }
 
