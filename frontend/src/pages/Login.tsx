@@ -341,39 +341,30 @@ export default function Login() {
           navigate('/')
           return
         }
-      } catch (backendErr) {
-        console.error('Backend login failed:', backendErr)
+      } catch (backendErr: any) {
+        console.error('Backend login notice:', backendErr)
+        if (backendErr.response?.status === 401) {
+          setErrorInfo({ message: 'Invalid email or password. Please check your credentials and try again.' })
+          return
+        }
       }
 
       // 3. Fallback for demo credentials
-      if (targetEmail === 'demo@redora.ai' || targetEmail === 'admin@redora.ai') {
+      if (targetEmail === 'demo@redora.ai' && targetPassword === 'demo123456') {
         localStorage.setItem('access_token', 'demo-access-token')
         sessionStorage.setItem('is_logged_in', 'true')
         navigate('/')
         return
       }
 
-      // 4. Default user session creation for newly registered users if credentials are provided
-      if (targetEmail && targetPassword) {
-        localStorage.setItem('access_token', `user-token-${Date.now()}`)
-        sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
-        return
-      }
-
+      // Strict credential check: show error if email/password don't match registered account
       if (loginError) {
         setErrorInfo(mapAuthError(loginError, 'login'))
       } else {
-        setErrorInfo({ message: 'Login failed. Please check your credentials and try again.' })
+        setErrorInfo({ message: 'Invalid email or password. Please check your credentials and try again.' })
       }
     } catch (err: any) {
-      if (targetEmail && targetPassword) {
-        sessionStorage.setItem('is_logged_in', 'true')
-        localStorage.setItem('access_token', `user-token-${Date.now()}`)
-        navigate('/')
-      } else {
-        setErrorInfo(mapAuthError(err, 'login'))
-      }
+      setErrorInfo(mapAuthError(err, 'login'))
     } finally {
       setLoading(false)
     }
