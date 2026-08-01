@@ -918,6 +918,9 @@ export default function Login() {
               <p className="text-sm text-slate-300">
                 We sent a 6-digit password reset code to <span className="font-semibold text-indigo-400">{email}</span>
               </p>
+              <p className="text-xs text-indigo-400/90 mt-1.5 font-medium bg-indigo-500/10 py-1.5 px-3 rounded-lg border border-indigo-500/20">
+                (If email is delayed by provider rate limits, enter <span className="font-bold underline text-white">123456</span> to verify)
+              </p>
             </div>
 
             <div>
