@@ -193,25 +193,23 @@ export default function Login() {
       }
     }
 
-    // 6. RATE LIMITING / SMTP / RESEND TESTING DOMAIN / TOO MANY REQUESTS
+    // 6. RATE LIMITING / SMTP / TOO MANY REQUESTS
     if (
       lowerMsg.includes('error sending confirmation email') ||
       lowerMsg.includes('confirmation email')
     ) {
       return {
-        message: 'Unable to send verification email. Please check your Resend SMTP credentials and sender email in Supabase Dashboard.',
+        message: 'Unable to send verification email. Please verify your SMTP / Email Provider settings in Supabase Dashboard.',
       }
     }
 
     if (
       lowerMsg.includes('testing domain') ||
       lowerMsg.includes('you can only send to') ||
-      lowerMsg.includes('validation_error') ||
-      lowerMsg.includes('resend')
+      lowerMsg.includes('validation_error')
     ) {
-      console.warn('RESEND TESTING DOMAIN RESTRICTION DETECTED:', rawMsg)
       return {
-        message: 'Email delivery failed: Resend SMTP is in testing mode and can only send verification emails to the registered account owner email.',
+        message: 'Email delivery failed: Email provider is in testing mode and can only send verification emails to the registered account owner email.',
       }
     }
 
