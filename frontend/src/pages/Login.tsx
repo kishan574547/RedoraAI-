@@ -178,7 +178,19 @@ export default function Login() {
       }
     }
 
-    // 6. RATE LIMITING / SMTP / TOO MANY REQUESTS
+    // 6. RATE LIMITING / SMTP / RESEND TESTING DOMAIN / TOO MANY REQUESTS
+    if (
+      lowerMsg.includes('testing domain') ||
+      lowerMsg.includes('you can only send to') ||
+      lowerMsg.includes('validation_error') ||
+      lowerMsg.includes('resend')
+    ) {
+      console.warn('RESEND TESTING DOMAIN RESTRICTION DETECTED:', rawMsg)
+      return {
+        message: 'Email delivery failed: Resend SMTP is in testing mode and can only send verification emails to the registered account owner email.',
+      }
+    }
+
     if (
       lowerMsg.includes('rate limit') ||
       lowerMsg.includes('over_email_send_rate_limit') ||
@@ -203,6 +215,9 @@ export default function Login() {
         message: 'Invalid email address. Please check your email and try again.',
       }
     }
+
+    // Fallback: Log warning for unmapped error type
+    console.warn('UNMAPPED AUTH ERROR TYPE:', { err, code, rawMsg })
 
     if (rawMsg && rawMsg !== '{}') {
       return { message: rawMsg }
@@ -259,6 +274,13 @@ export default function Login() {
       })
 
       if (error) {
+        console.error('FULL SIGNUP ERROR RESPONSE:', {
+          status: (error as any).status || (error as any).statusCode,
+          message: error.message,
+          code: (error as any).code || (error as any).error,
+          name: error.name,
+          errorObj: error,
+        })
         setErrorInfo(mapAuthError(error, 'signup'))
         setLoading(false)
         return
