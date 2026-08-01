@@ -100,6 +100,19 @@ export default function Login() {
       }
     }
 
+    // Try parsing if rawMsg is JSON object string
+    if (rawMsg.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(rawMsg)
+        if (parsed.message) rawMsg = parsed.message
+        else if (parsed.msg) rawMsg = parsed.msg
+        else if (parsed.error_description) rawMsg = parsed.error_description
+        else if (parsed.detail) rawMsg = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail)
+      } catch {
+        // Keep rawMsg as is
+      }
+    }
+
     const lowerMsg = rawMsg.toLowerCase().trim()
     const code = (err.code || err.error || '').toString().toLowerCase().trim()
 
@@ -191,7 +204,7 @@ export default function Login() {
       }
     }
 
-    if (rawMsg && rawMsg !== '{}' && !rawMsg.startsWith('{')) {
+    if (rawMsg && rawMsg !== '{}') {
       return { message: rawMsg }
     }
 
