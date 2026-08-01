@@ -259,16 +259,9 @@ export default function Login() {
       console.warn('Supabase signup error:', err)
     }
 
-    // Trigger automatic Resend API backup email
-    try {
-      await api.post('/auth/send-resend-otp', { email: email.trim(), code: '123456' })
-    } catch (rErr) {
-      console.warn('Resend backup email notice:', rErr)
-    }
-
-    // Always transition to OTP verification mode so user can verify code or use 123456
+    // Transition to OTP verification mode
     setMode('verify_signup')
-    setSuccessMessage(`Account created! A 6-digit verification code has been sent to ${email.trim()}. (Enter code from email or 123456)`)
+    setSuccessMessage(`Account created! A 6-digit verification code has been sent to ${email.trim()}.`)
     setCooldown(60)
     setLoading(false)
   }
@@ -292,13 +285,6 @@ export default function Login() {
       })
 
       if (verifyError) {
-        // Developer / Rate-limit fallback OTP code verification check
-        if (otpCode.trim() === '123456') {
-          setMode('login')
-          setSuccessMessage('Email verified successfully! Please sign in with your email and password.')
-          setOtpCode('')
-          return
-        }
         setErrorInfo(mapAuthError(verifyError, 'otp'))
         return
       }
@@ -314,13 +300,7 @@ export default function Login() {
       setSuccessMessage('Email verified successfully! Please sign in with your email and password.')
       setOtpCode('')
     } catch (err: any) {
-      if (otpCode.trim() === '123456') {
-        setMode('login')
-        setSuccessMessage('Email verified successfully! Please sign in with your email and password.')
-        setOtpCode('')
-      } else {
-        setErrorInfo(mapAuthError(err, 'otp'))
-      }
+      setErrorInfo(mapAuthError(err, 'otp'))
     } finally {
       setLoading(false)
     }
@@ -476,11 +456,6 @@ export default function Login() {
       })
 
       if (verifyError) {
-        if (otpCode.trim() === '123456') {
-          setMode('reset_password')
-          setSuccessMessage('Code verified! Set your new password.')
-          return
-        }
         setErrorInfo(mapAuthError(verifyError, 'otp'))
         return
       }
@@ -488,12 +463,7 @@ export default function Login() {
       setMode('reset_password')
       setSuccessMessage('Code verified! Set your new password.')
     } catch (err: any) {
-      if (otpCode.trim() === '123456') {
-        setMode('reset_password')
-        setSuccessMessage('Code verified! Set your new password.')
-      } else {
-        setErrorInfo(mapAuthError(err, 'otp'))
-      }
+      setErrorInfo(mapAuthError(err, 'otp'))
     } finally {
       setLoading(false)
     }
@@ -933,7 +903,7 @@ export default function Login() {
                 We sent a 6-digit password reset code to <span className="font-semibold text-indigo-400">{email}</span>
               </p>
               <p className="text-xs text-indigo-400/90 mt-1.5 font-medium bg-indigo-500/10 py-1.5 px-3 rounded-lg border border-indigo-500/20">
-                (If email is delayed by provider rate limits, enter <span className="font-bold underline text-white">123456</span> to verify)
+                Please enter the 6-digit code received in your email inbox to reset your password.
               </p>
             </div>
 
