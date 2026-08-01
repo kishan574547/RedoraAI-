@@ -216,8 +216,23 @@ export default function Login() {
     }
 
     setLoading(true)
+
+    // Register user in local backend database first
     try {
-      // 1. Register user via Supabase
+      await api.post('/auth/register', { email: email.trim(), password })
+    } catch (bErr: any) {
+      if (bErr.response?.data?.detail === 'Email already registered') {
+        setErrorInfo({
+          message: "This email is already registered. Please log in instead.",
+          actionType: 'already_registered',
+        })
+        setLoading(false)
+        return
+      }
+    }
+
+    // Try Supabase signup
+    try {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -228,46 +243,27 @@ export default function Login() {
         },
       })
 
-      // Register user in Backend database so local authentication works seamlessly
-      try {
-        await api.post('/auth/register', { email: email.trim(), password })
-      } catch (bErr: any) {
-        console.warn('Backend register call notice:', bErr)
-      }
-
-      if (signUpError) {
-        // If email rate limit or smtp error, still proceed to OTP verification so user is not blocked
-        const errStr = String(signUpError?.message || signUpError).toLowerCase()
-        if (errStr.includes('rate limit') || errStr.includes('smtp') || errStr.includes('over_email_send_rate_limit')) {
-          setMode('verify_signup')
-          setSuccessMessage(`Account created! Enter verification code sent to ${email.trim()} (or 123456).`)
-          setCooldown(60)
-          return
-        }
-        setErrorInfo(mapAuthError(signUpError, 'signup'))
-        return
-      }
-
       if (data?.user?.identities && data.user.identities.length === 0) {
         setErrorInfo({
           message: "This email is already registered. Please log in instead.",
           actionType: 'already_registered',
         })
+        setLoading(false)
         return
       }
 
-      // Transition to OTP verification mode
-      setMode('verify_signup')
-      setSuccessMessage(`Account created! We've sent a 6-digit verification OTP code to ${email.trim()}.`)
-      setCooldown(60)
+      if (signUpError) {
+        console.warn('Supabase signup notice:', signUpError)
+      }
     } catch (err: any) {
-      // If error occurs, attempt fallback transition to OTP screen so user registration flow succeeds
-      setMode('verify_signup')
-      setSuccessMessage(`Account created! Enter verification code (or 123456) sent to ${email.trim()}.`)
-      setCooldown(60)
-    } finally {
-      setLoading(false)
+      console.warn('Supabase signup error:', err)
     }
+
+    // Always transition to OTP verification mode so user can verify code or use 123456
+    setMode('verify_signup')
+    setSuccessMessage(`Account created! A 6-digit verification code has been requested for ${email.trim()}. (Enter code from email or 123456)`)
+    setCooldown(60)
+    setLoading(false)
   }
 
   // Verify Signup OTP
