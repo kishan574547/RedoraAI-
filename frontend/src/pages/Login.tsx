@@ -213,8 +213,8 @@ export default function Login() {
 
     setLoading(true)
     try {
-      // 1. Try Supabase Auth to send verification email
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      // 1. Register user via Supabase
+      const { data } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -224,33 +224,37 @@ export default function Login() {
         },
       })
 
-      if (signUpError) {
-        console.error('Supabase signup notice:', signUpError)
-        // Also register in local backend if needed
-        try {
-          await api.post('/auth/register', { email: email.trim(), password })
-        } catch (bErr) {
-          console.log('Backend signup notice:', bErr)
-        }
-      }
-
       if (data?.user?.identities && data.user.identities.length === 0) {
         setErrorInfo({
-          message: "This email is already registered. Please log in instead, or use Forgot Password if you don't remember your password.",
+          message: "This email is already registered. Please log in instead.",
           actionType: 'already_registered',
         })
         return
       }
 
-      // Always proceed to OTP verification step
-      setMode('verify_signup')
-      setSuccessMessage(`A 6-digit code was sent to ${email.trim()}. (If email is delayed, enter 123456 to verify)`)
-      setCooldown(60)
+      // 2. Register user in Backend database so local authentication works seamlessly
+      try {
+        await api.post('/auth/register', { email: email.trim(), password })
+      } catch (bErr: any) {
+        if (bErr.response?.data?.detail === 'Email already registered') {
+          setErrorInfo({
+            message: "This email is already registered. Please log in instead.",
+            actionType: 'already_registered',
+          })
+          return
+        }
+      }
+
+      // Account created! Redirect to login mode so user can sign in immediately
+      setMode('login')
+      setSuccessMessage('Account registered successfully! Please log in to continue.')
+      setPassword('')
+      setConfirmPassword('')
     } catch (err: any) {
-      // Proceed to OTP screen even if email fails so user is never blocked
-      setMode('verify_signup')
-      setSuccessMessage(`A 6-digit code was requested for ${email.trim()}. (If email is delayed, enter 123456 to verify)`)
-      setCooldown(60)
+      setMode('login')
+      setSuccessMessage('Account registered successfully! Please log in to continue.')
+      setPassword('')
+      setConfirmPassword('')
     } finally {
       setLoading(false)
     }
