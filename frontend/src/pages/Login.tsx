@@ -217,23 +217,31 @@ export default function Login() {
 
     setLoading(true)
 
-    // Register user in local backend database first
+    // Register user in local backend database first & dispatch unique email OTP
     try {
-      await api.post('/auth/register', { email: email.trim(), password })
+      const res = await api.post('/auth/register', { email: email.trim(), password })
+      setMode('verify_signup')
+      setSuccessMessage(res.data?.message || `Account created! A unique 6-digit verification code has been sent to ${email.trim()}.`)
+      setCooldown(60)
+      setLoading(false)
+      return
     } catch (bErr: any) {
-      if (bErr.response?.data?.detail === 'Email already registered') {
-        setErrorInfo({
-          message: "This email is already registered. Please log in instead.",
-          actionType: 'already_registered',
-        })
-        setLoading(false)
-        return
+      if (bErr.response?.data?.detail) {
+        const detail = bErr.response.data.detail
+        if (typeof detail === 'string' && detail.includes('already registered')) {
+          setErrorInfo({
+            message: "This email is already registered. Please log in instead.",
+            actionType: 'already_registered',
+          })
+          setLoading(false)
+          return
+        }
       }
     }
 
-    // Try Supabase signup
+    // Backup Supabase signup call
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -242,24 +250,10 @@ export default function Login() {
           },
         },
       })
-
-      if (data?.user?.identities && data.user.identities.length === 0) {
-        setErrorInfo({
-          message: "This email is already registered. Please log in instead.",
-          actionType: 'already_registered',
-        })
-        setLoading(false)
-        return
-      }
-
-      if (signUpError) {
-        console.warn('Supabase signup notice:', signUpError)
-      }
     } catch (err: any) {
-      console.warn('Supabase signup error:', err)
+      console.warn('Supabase signup notice:', err)
     }
 
-    // Transition to OTP verification mode
     setMode('verify_signup')
     setSuccessMessage(`Account created! A 6-digit verification code has been sent to ${email.trim()}.`)
     setCooldown(60)
@@ -277,6 +271,29 @@ export default function Login() {
     }
 
     setLoading(true)
+
+    // 1. Verify via Backend API first
+    try {
+      const res = await api.post('/auth/verify-otp', {
+        email: email.trim(),
+        code: otpCode.trim(),
+      })
+
+      if (res.data?.access_token) {
+        localStorage.setItem('access_token', res.data.access_token)
+        sessionStorage.setItem('is_logged_in', 'true')
+        navigate('/')
+        return
+      }
+    } catch (bErr: any) {
+      if (bErr.response?.data?.detail) {
+        setErrorInfo({ message: String(bErr.response.data.detail) })
+        setLoading(false)
+        return
+      }
+    }
+
+    // 2. Backup Supabase verification
     try {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email: email.trim(),
@@ -384,23 +401,8 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email: email.trim(),
-      })
-
-      if (resendError) {
-        console.error('Resend error:', resendError)
-      }
-
-      // Trigger automatic Resend API backup email
-      try {
-        await api.post('/auth/send-resend-otp', { email: email.trim(), code: '123456' })
-      } catch (rErr) {
-        console.warn('Resend backup email notice:', rErr)
-      }
-
-      setSuccessMessage(`A new verification code was sent to ${email.trim()}.`)
+      const res = await api.post('/auth/resend-otp', { email: email.trim() })
+      setSuccessMessage(res.data?.message || `A new verification code was sent to ${email.trim()}.`)
       setCooldown(60)
     } catch (err: any) {
       setSuccessMessage(`A new verification code was sent to ${email.trim()}.`)
