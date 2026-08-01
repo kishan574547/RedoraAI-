@@ -30,16 +30,26 @@ async def send_otp_via_emailjs(to_email: str, otp_code: str) -> Dict[str, Any]:
         "user_id": public_key.strip(),
         "template_params": {
             "to_email": to_email.strip(),
-            "otp_code": otp_code.strip()
+            "email": to_email.strip(),
+            "recipient": to_email.strip(),
+            "otp_code": otp_code.strip(),
+            "code": otp_code.strip(),
+            "title": f"Verification Code: {otp_code.strip()}",
+            "message": f"Your 6-digit verification code is: {otp_code.strip()}"
         }
     }
 
     if private_key:
         payload["accessToken"] = private_key.strip()
 
+    headers = {
+        "Content-Type": "application/json",
+        "Origin": "https://redora-ai.vercel.app"
+    }
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(EMAILJS_API_URL, json=payload)
+            resp = await client.post(EMAILJS_API_URL, json=payload, headers=headers)
             if resp.status_code == 200:
                 logger.info(f"EmailJS OTP successfully sent to {to_email}")
                 return {"sent": True, "provider": "emailjs"}
