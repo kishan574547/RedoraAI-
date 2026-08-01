@@ -195,6 +195,15 @@ export default function Login() {
 
     // 6. RATE LIMITING / SMTP / RESEND TESTING DOMAIN / TOO MANY REQUESTS
     if (
+      lowerMsg.includes('error sending confirmation email') ||
+      lowerMsg.includes('confirmation email')
+    ) {
+      return {
+        message: 'Unable to send verification email. Please check your Resend SMTP credentials and sender email in Supabase Dashboard.',
+      }
+    }
+
+    if (
       lowerMsg.includes('testing domain') ||
       lowerMsg.includes('you can only send to') ||
       lowerMsg.includes('validation_error') ||
