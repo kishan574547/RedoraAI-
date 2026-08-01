@@ -1,0 +1,21 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+alembic==1.12.1
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+sentence-transformers==2.2.2
+httpx==0.25.2
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+pypdf>=3.17.0
+pdf2docx>=0.5.6
+pikepdf>=8.0.0
+reportlab>=4.0.0
+# Document scanning & OCR dependencies
+# NOTE: Tesseract binary must be installed on the deployment environment (e.g., apt-get install -y tesseract-ocr on Render/Railway)
+pytesseract>=0.3.10
+pillow>=10.0.0
+python-docx>=1.0.0

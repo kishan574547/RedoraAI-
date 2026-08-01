@@ -1,0 +1,10 @@
+{
+  "name": "redora-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Redora Backend FastApi server",
+  "scripts": {
+    "dev": "python -m uvicorn app.main:app --reload --port 8000",
+    "start": "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+  }
+}
