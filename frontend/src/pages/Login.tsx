@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Lock, Mail, User, AlertCircle, CheckCircle2, Eye, EyeOff, KeyRound, RefreshCw, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
-import api from '../lib/api'
 
 type AuthMode = 'login' | 'signup' | 'verify_signup' | 'forgot_password' | 'verify_recovery' | 'reset_password'
 
@@ -109,7 +108,8 @@ export default function Login() {
       context === 'login' &&
       (code === 'invalid_credentials' ||
        lowerMsg.includes('invalid login credentials') ||
-       lowerMsg.includes('incorrect email or password'))
+       lowerMsg.includes('incorrect email or password') ||
+       lowerMsg.includes('invalid credentials'))
     ) {
       return {
         message: 'Invalid email or password. Please check your credentials and try again.',
@@ -131,7 +131,7 @@ export default function Login() {
 
     // 3. SIGNUP WITH ALREADY-REGISTERED EMAIL
     if (
-      context === 'signup' &&
+      (context === 'signup' || lowerMsg.includes('already registered')) &&
       (code === 'user_already_exists' ||
        lowerMsg.includes('user already registered') ||
        lowerMsg.includes('user already exists') ||
@@ -147,7 +147,7 @@ export default function Login() {
     // 4. EMAIL NOT CONFIRMED / UNVERIFIED
     if (lowerMsg.includes('email not confirmed') || lowerMsg.includes('unconfirmed email')) {
       return {
-        message: "Your email address hasn't been verified yet. Please enter your verification code or resend a new one.",
+        message: "Please verify your email before signing in.",
         actionType: 'verify_email',
       }
     }
@@ -173,14 +173,21 @@ export default function Login() {
       lowerMsg.includes('too many requests')
     ) {
       return {
-        message: 'Email delivery rate limit reached. Access has been granted directly.',
+        message: 'Too many requests or email delivery limit reached. Please wait a moment and try again.',
       }
     }
 
     // 7. WEAK PASSWORD
-    if (lowerMsg.includes('weak password') || lowerMsg.includes('at least 6 characters')) {
+    if (lowerMsg.includes('weak password') || lowerMsg.includes('at least 6 characters') || lowerMsg.includes('password should be at least')) {
       return {
-        message: 'Password is too weak. Please use at least 6 characters.',
+        message: 'Password does not meet requirements. Please use at least 6 characters.',
+      }
+    }
+
+    // 8. INVALID EMAIL
+    if (lowerMsg.includes('invalid email') || lowerMsg.includes('unable to validate email')) {
+      return {
+        message: 'Invalid email address. Please check your email and try again.',
       }
     }
 
@@ -188,25 +195,34 @@ export default function Login() {
       return { message: rawMsg }
     }
 
-    if (context === 'signup') {
-      return { message: 'Sign up failed. Please check your details and try again.' }
-    }
-
     return { message: 'An error occurred. Please check your details and try again.' }
   }
 
-  // Handle Signup
+  // Handle Signup (Frontend -> Supabase Auth directly)
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     clearMessages()
 
-    if (!fullName.trim()) {
+    const trimmedFullName = fullName.trim()
+    const trimmedEmail = email.trim()
+
+    if (!trimmedFullName) {
       setErrorInfo({ message: 'Please enter your full name.' })
       return
     }
 
-    if (!email.trim()) {
+    if (!trimmedEmail) {
       setErrorInfo({ message: 'Please enter your email address.' })
+      return
+    }
+
+    if (!password) {
+      setErrorInfo({ message: 'Please enter a password.' })
+      return
+    }
+
+    if (password.length < 6) {
+      setErrorInfo({ message: 'Password must be at least 6 characters long.' })
       return
     }
 
@@ -217,107 +233,71 @@ export default function Login() {
 
     setLoading(true)
 
-    // Register user in local backend database first
-    try {
-      const res = await api.post('/auth/register', { email: email.trim(), password })
-      if (res.data?.access_token) {
-        localStorage.setItem('access_token', res.data.access_token)
-        sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
-        return
-      }
-    } catch (bErr: any) {
-      if (bErr.response?.data?.detail) {
-        const detail = bErr.response.data.detail
-        if (typeof detail === 'string' && detail.includes('already registered')) {
-          setErrorInfo({
-            message: "This email is already registered. Please log in instead.",
-            actionType: 'already_registered',
-          })
-          setLoading(false)
-          return
-        }
-      }
-    }
-
-    // Supabase signup call
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: trimmedEmail,
         password,
         options: {
           data: {
-            full_name: fullName.trim(),
+            full_name: trimmedFullName,
           },
         },
       })
+
+      if (error) {
+        setErrorInfo(mapAuthError(error, 'signup'))
+        setLoading(false)
+        return
+      }
+
+      // If instant session is granted (email confirmation disabled in Supabase)
       if (data?.session?.access_token) {
         localStorage.setItem('access_token', data.session.access_token)
         sessionStorage.setItem('is_logged_in', 'true')
         navigate('/')
         return
       }
-      if (error) {
-        setErrorInfo(mapAuthError(error, 'signup'))
-        setLoading(false)
-        return
-      }
-    } catch (err: any) {
-      console.warn('Supabase signup notice:', err)
-    }
 
-    setMode('login')
-    setSuccessMessage(`Account created successfully for ${email.trim()}! Please sign in below.`)
-    setLoading(false)
+      // Otherwise, transition to OTP Verification screen
+      setMode('verify_signup')
+      setSuccessMessage(`Verification code sent to ${trimmedEmail}. Please enter the 6-digit code below.`)
+      setCooldown(60)
+    } catch (err: any) {
+      setErrorInfo(mapAuthError(err, 'signup'))
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Verify Signup OTP
+  // Verify Signup OTP via Supabase Auth
   const handleVerifySignupOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     clearMessages()
 
-    if (otpCode.length < 6) {
+    const trimmedEmail = email.trim()
+    const trimmedOtp = otpCode.trim()
+
+    if (trimmedOtp.length < 6) {
       setErrorInfo({ message: 'Please enter the complete 6-digit verification code.' })
       return
     }
 
     setLoading(true)
 
-    // 1. Verify via Backend API first
-    try {
-      const res = await api.post('/auth/verify-otp', {
-        email: email.trim(),
-        code: otpCode.trim(),
-      })
-
-      if (res.data?.access_token) {
-        localStorage.setItem('access_token', res.data.access_token)
-        sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
-        return
-      }
-    } catch (bErr: any) {
-      if (bErr.response?.data?.detail) {
-        setErrorInfo({ message: String(bErr.response.data.detail) })
-        setLoading(false)
-        return
-      }
-    }
-
-    // 2. Backup Supabase verification
     try {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email: email.trim(),
-        token: otpCode.trim(),
+        email: trimmedEmail,
+        token: trimmedOtp,
         type: 'signup',
       })
 
       if (verifyError) {
         setErrorInfo(mapAuthError(verifyError, 'otp'))
+        setLoading(false)
         return
       }
 
-      if (data.session?.access_token) {
+      if (data?.session?.access_token) {
         localStorage.setItem('access_token', data.session.access_token)
         sessionStorage.setItem('is_logged_in', 'true')
         navigate('/')
@@ -334,70 +314,55 @@ export default function Login() {
     }
   }
 
-  // Handle Login
+  // Handle Login via Supabase Auth
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     clearMessages()
 
-    if (!email.trim()) {
+    const trimmedEmail = email.trim()
+    const targetPassword = password
+
+    if (!trimmedEmail) {
       setErrorInfo({ message: 'Please enter your email address.' })
       return
     }
 
-    if (!password) {
+    if (!targetPassword) {
       setErrorInfo({ message: 'Please enter your password.' })
       return
     }
 
     setLoading(true)
 
-    const targetEmail = email.trim()
-    const targetPassword = password
-
     try {
-      // 1. Attempt standard Supabase login
+      // Standard Supabase login
       const { data, error: loginError } = await supabase.auth.signInWithPassword({
-        email: targetEmail,
+        email: trimmedEmail,
         password: targetPassword,
       })
 
-      if (!loginError && data.session?.access_token) {
+      if (loginError) {
+        setErrorInfo(mapAuthError(loginError, 'login'))
+        setLoading(false)
+        return
+      }
+
+      if (data?.session?.access_token) {
         localStorage.setItem('access_token', data.session.access_token)
         sessionStorage.setItem('is_logged_in', 'true')
         navigate('/')
         return
       }
 
-      // 2. Attempt Backend Auth endpoint (/api/v1/auth/login)
-      try {
-        const res = await api.post('/auth/login', { email: targetEmail, password: targetPassword })
-        if (res.data?.access_token) {
-          localStorage.setItem('access_token', res.data.access_token)
-          sessionStorage.setItem('is_logged_in', 'true')
-          navigate('/')
-          return
-        }
-      } catch (backendErr: any) {
-        if (backendErr.response?.status === 401) {
-          setErrorInfo({ message: 'Invalid email or password. Please check your credentials and try again.' })
-          return
-        }
-      }
-
-      // 3. Demo account fallback
-      if (targetEmail === 'demo@redora.ai' && targetPassword === 'demo123456') {
+      // Fallback demo account
+      if (trimmedEmail === 'demo@redora.ai' && targetPassword === 'demo123456') {
         localStorage.setItem('access_token', 'demo-access-token')
         sessionStorage.setItem('is_logged_in', 'true')
         navigate('/')
         return
       }
 
-      // Show invalid credentials message
-      if (loginError) {
-        setErrorInfo(mapAuthError(loginError, 'login'))
-      } else {
-        setErrorInfo({ message: 'Invalid email or password. Please check your credentials and try again.' })
-      }
+      setErrorInfo({ message: 'Invalid email or password. Please check your credentials and try again.' })
     } catch (err: any) {
       setErrorInfo(mapAuthError(err, 'login'))
     } finally {
@@ -405,18 +370,35 @@ export default function Login() {
     }
   }
 
-  // Resend OTP for Signup
+  // Resend OTP for Signup via Supabase Auth
   const handleResendSignupOtp = async () => {
     if (cooldown > 0) return
     clearMessages()
     setLoading(true)
 
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
+      setErrorInfo({ message: 'Please enter your email address.' })
+      setLoading(false)
+      return
+    }
+
     try {
-      const res = await api.post('/auth/resend-otp', { email: email.trim() })
-      setSuccessMessage(res.data?.message || `A new verification code was sent to ${email.trim()}.`)
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: trimmedEmail,
+      })
+
+      if (resendError) {
+        setErrorInfo(mapAuthError(resendError))
+        setLoading(false)
+        return
+      }
+
+      setSuccessMessage(`A new verification code was sent to ${trimmedEmail}.`)
       setCooldown(60)
     } catch (err: any) {
-      setSuccessMessage(`A new verification code was sent to ${email.trim()}.`)
+      setErrorInfo(mapAuthError(err))
     } finally {
       setLoading(false)
     }
@@ -427,7 +409,8 @@ export default function Login() {
     e.preventDefault()
     clearMessages()
 
-    if (!email.trim()) {
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
       setErrorInfo({ message: 'Please enter your email address.' })
       return
     }
@@ -435,19 +418,21 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const { error: resetReqError } = await supabase.auth.resetPasswordForEmail(email.trim())
+      const { error: resetReqError } = await supabase.auth.resetPasswordForEmail(trimmedEmail)
       if (resetReqError) {
-        console.error('Password reset email error:', resetReqError)
+        setErrorInfo(mapAuthError(resetReqError))
+        setLoading(false)
+        return
       }
+
+      setMode('verify_recovery')
+      setSuccessMessage(`Password reset code sent to ${trimmedEmail}. Please enter the 6-digit OTP code below.`)
+      setCooldown(60)
     } catch (err: any) {
-      console.error('Password reset error:', err)
+      setErrorInfo(mapAuthError(err))
     } finally {
       setLoading(false)
     }
-
-    setMode('verify_recovery')
-    setSuccessMessage(`Password reset code sent to ${email.trim()}. Please enter the 6-digit OTP code below.`)
-    setCooldown(60)
   }
 
   // Forgot Password Step 2: Verify Recovery OTP
@@ -455,21 +440,25 @@ export default function Login() {
     e.preventDefault()
     clearMessages()
 
-    if (otpCode.length < 6) {
-      setErrorInfo({ message: 'Please enter the 6-digit code.' })
+    const trimmedEmail = email.trim()
+    const trimmedOtp = otpCode.trim()
+
+    if (trimmedOtp.length < 6) {
+      setErrorInfo({ message: 'Please enter the complete 6-digit code.' })
       return
     }
 
     setLoading(true)
     try {
       const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: email.trim(),
-        token: otpCode.trim(),
+        email: trimmedEmail,
+        token: trimmedOtp,
         type: 'recovery',
       })
 
       if (verifyError) {
         setErrorInfo(mapAuthError(verifyError, 'otp'))
+        setLoading(false)
         return
       }
 
@@ -488,14 +477,17 @@ export default function Login() {
     clearMessages()
     setLoading(true)
 
+    const trimmedEmail = email.trim()
+
     try {
-      const { error: resendError } = await supabase.auth.resetPasswordForEmail(email)
+      const { error: resendError } = await supabase.auth.resetPasswordForEmail(trimmedEmail)
       if (resendError) {
         setErrorInfo(mapAuthError(resendError))
+        setLoading(false)
         return
       }
 
-      setSuccessMessage(`A new reset code has been sent to ${email}`)
+      setSuccessMessage(`A new reset code has been sent to ${trimmedEmail}`)
       setCooldown(60)
     } catch (err: any) {
       setErrorInfo(mapAuthError(err))
@@ -514,6 +506,11 @@ export default function Login() {
       return
     }
 
+    if (newPassword.length < 6) {
+      setErrorInfo({ message: 'New password must be at least 6 characters long.' })
+      return
+    }
+
     setLoading(true)
     try {
       const { error: updateError } = await supabase.auth.updateUser({
@@ -522,6 +519,7 @@ export default function Login() {
 
       if (updateError) {
         setErrorInfo(mapAuthError(updateError, 'reset'))
+        setLoading(false)
         return
       }
 
