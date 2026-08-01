@@ -284,6 +284,7 @@ export default function Login() {
           emailRedirectTo: window.location.origin,
           data: {
             full_name: trimmedFullName,
+            display_name: trimmedFullName,
           },
         },
       })
