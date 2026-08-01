@@ -11,8 +11,8 @@ export default function Login() {
 
   // Form inputs
   const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('demo@redora.ai')
-  const [password, setPassword] = useState('demo123456')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newConfirmPassword, setNewConfirmPassword] = useState('')
@@ -228,25 +228,19 @@ export default function Login() {
           return
         }
 
-        if (!data.session?.access_token) {
-          setMode('verify_signup')
-          setSuccessMessage(`We sent a 6-digit verification code to ${email}`)
-          setCooldown(60)
-          return
-        }
-
-        // Send to Login page for authentication
-        setMode('login')
-        setSuccessMessage('Account created successfully! Please enter your password to log in.')
+        setMode('verify_signup')
+        setSuccessMessage(`We sent a 6-digit verification code to ${email.trim()}`)
+        setCooldown(60)
         return
       }
 
       // 2. Fallback to Backend Auth endpoint (/api/v1/auth/register)
       try {
-        const res = await api.post('/auth/register', { email, password })
+        const res = await api.post('/auth/register', { email: email.trim(), password })
         if (res.status === 200 || res.data?.access_token) {
-          setMode('login')
-          setSuccessMessage('Account created successfully! Please enter your password to log in.')
+          setMode('verify_signup')
+          setSuccessMessage(`We sent a 6-digit verification code to ${email.trim()}`)
+          setCooldown(60)
           return
         }
       } catch (backendErr: any) {
@@ -260,10 +254,11 @@ export default function Login() {
         }
       }
 
-      // 3. Fallback for offline/rate-limited auth mode: switch to Login page
+      // 3. Fallback for offline/rate-limited auth mode: show OTP verification
       if (email.trim() && password) {
-        setMode('login')
-        setSuccessMessage('Account created successfully! Please enter your password to log in.')
+        setMode('verify_signup')
+        setSuccessMessage(`We sent a 6-digit verification code to ${email.trim()}`)
+        setCooldown(60)
         return
       }
 
