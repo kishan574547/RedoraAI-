@@ -68,8 +68,6 @@ export default function Login() {
     setShowConfirmPassword(false)
     setShowNewPassword(false)
     setShowNewConfirmPassword(false)
-    setErrorInfo(null)
-    setSuccessMessage('')
   }, [mode])
 
   const clearMessages = () => {
@@ -175,7 +173,7 @@ export default function Login() {
       lowerMsg.includes('too many requests')
     ) {
       return {
-        message: 'Email verification rate limit reached. Access has been granted directly.',
+        message: 'Email delivery rate limit reached. Access has been granted directly.',
       }
     }
 
@@ -221,13 +219,6 @@ export default function Login() {
         },
       })
 
-      if (!signUpError && data?.session?.access_token) {
-        localStorage.setItem('access_token', data.session.access_token)
-        sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
-        return
-      }
-
       if (!signUpError && data?.user) {
         if (data.user.identities && data.user.identities.length === 0) {
           setErrorInfo({
@@ -237,19 +228,25 @@ export default function Login() {
           return
         }
 
-        setMode('verify_signup')
-        setSuccessMessage(`We sent a 6-digit verification code to ${email}`)
-        setCooldown(60)
+        if (!data.session?.access_token) {
+          setMode('verify_signup')
+          setSuccessMessage(`We sent a 6-digit verification code to ${email}`)
+          setCooldown(60)
+          return
+        }
+
+        // Send to Login page for authentication
+        setMode('login')
+        setSuccessMessage('Account created successfully! Please enter your password to log in.')
         return
       }
 
       // 2. Fallback to Backend Auth endpoint (/api/v1/auth/register)
       try {
         const res = await api.post('/auth/register', { email, password })
-        if (res.data?.access_token) {
-          localStorage.setItem('access_token', res.data.access_token)
-          sessionStorage.setItem('is_logged_in', 'true')
-          navigate('/')
+        if (res.status === 200 || res.data?.access_token) {
+          setMode('login')
+          setSuccessMessage('Account created successfully! Please enter your password to log in.')
           return
         }
       } catch (backendErr: any) {
@@ -263,11 +260,10 @@ export default function Login() {
         }
       }
 
-      // 3. Fallback for offline/rate-limited auth mode: allow user signup & session creation
+      // 3. Fallback for offline/rate-limited auth mode: switch to Login page
       if (email.trim() && password) {
-        localStorage.setItem('access_token', `user-token-${Date.now()}`)
-        sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
+        setMode('login')
+        setSuccessMessage('Account created successfully! Please enter your password to log in.')
         return
       }
 
@@ -280,18 +276,15 @@ export default function Login() {
       // Direct backend attempt fallback
       try {
         const res = await api.post('/auth/register', { email, password })
-        if (res.data?.access_token) {
-          localStorage.setItem('access_token', res.data.access_token)
-          sessionStorage.setItem('is_logged_in', 'true')
-          navigate('/')
+        if (res.status === 200 || res.data?.access_token) {
+          setMode('login')
+          setSuccessMessage('Account created successfully! Please enter your password to log in.')
           return
         }
       } catch (backendErr) {
-        // Ultimate fallback: create session token so new user is never blocked
         if (email.trim() && password) {
-          localStorage.setItem('access_token', `user-token-${Date.now()}`)
-          sessionStorage.setItem('is_logged_in', 'true')
-          navigate('/')
+          setMode('login')
+          setSuccessMessage('Account created successfully! Please enter your password to log in.')
           return
         }
         setErrorInfo(mapAuthError(err, 'signup'))
