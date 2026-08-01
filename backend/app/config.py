@@ -12,11 +12,6 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     KAGGLE_USERNAME: Optional[str] = None
     KAGGLE_KEY: Optional[str] = None
-    RESEND_API_KEY: Optional[str] = None
-    EMAILJS_SERVICE_ID: Optional[str] = None
-    EMAILJS_TEMPLATE_ID: Optional[str] = None
-    EMAILJS_PUBLIC_KEY: Optional[str] = None
-    EMAILJS_PRIVATE_KEY: Optional[str] = None
     JWT_SECRET_KEY: str = "super-secret-jwt-key"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
