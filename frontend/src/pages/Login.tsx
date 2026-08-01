@@ -250,6 +250,16 @@ export default function Login() {
         return
       }
 
+      // Check if email is already registered (Supabase returns empty identities array when user exists and email enumeration protection is on)
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setErrorInfo({
+          message: "This email is already registered. Please log in instead, or use Forgot Password if you don't remember your password.",
+          actionType: 'already_registered',
+        })
+        setLoading(false)
+        return
+      }
+
       // If instant session is granted (email confirmation disabled in Supabase)
       if (data?.session?.access_token) {
         localStorage.setItem('access_token', data.session.access_token)
