@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Lock, Mail, User, AlertCircle, CheckCircle2, Eye, EyeOff, KeyRound, RefreshCw, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import api from '../lib/api'
 
 type AuthMode = 'login' | 'signup' | 'verify_signup' | 'forgot_password' | 'verify_recovery' | 'reset_password'
 
@@ -91,16 +92,26 @@ export default function Login() {
       return { message: trimmed }
     }
 
-    const rawMsg = err.message || err.error_description || err.msg || ''
+    const rawMsg = err.response?.data?.detail || err.message || err.error_description || err.msg || ''
     const lowerMsg = typeof rawMsg === 'string' ? rawMsg.toLowerCase().trim() : ''
     const code = (err.code || err.error || '').toString().toLowerCase().trim()
 
-    // 1. LOGIN WITH UNREGISTERED EMAIL / INVALID CREDENTIALS
+    // 1. INVALID CREDENTIALS ON LOGIN
     if (
       context === 'login' &&
       (code === 'invalid_credentials' ||
        lowerMsg.includes('invalid login credentials') ||
-       lowerMsg.includes('user not found') ||
+       lowerMsg.includes('incorrect email or password'))
+    ) {
+      return {
+        message: 'Invalid email or password. Please check your credentials and try again.',
+      }
+    }
+
+    // 2. UNREGISTERED USER ON LOGIN
+    if (
+      context === 'login' &&
+      (lowerMsg.includes('user not found') ||
        lowerMsg.includes('email not found') ||
        lowerMsg.includes('no user'))
     ) {
@@ -110,7 +121,7 @@ export default function Login() {
       }
     }
 
-    // 2. SIGNUP WITH ALREADY-REGISTERED EMAIL
+    // 3. SIGNUP WITH ALREADY-REGISTERED EMAIL
     if (
       context === 'signup' &&
       (code === 'user_already_exists' ||
@@ -125,7 +136,7 @@ export default function Login() {
       }
     }
 
-    // 3. EMAIL NOT CONFIRMED / UNVERIFIED
+    // 4. EMAIL NOT CONFIRMED / UNVERIFIED
     if (lowerMsg.includes('email not confirmed') || lowerMsg.includes('unconfirmed email')) {
       return {
         message: "Your email address hasn't been verified yet. Please enter your verification code or resend a new one.",
@@ -133,7 +144,7 @@ export default function Login() {
       }
     }
 
-    // 4. INVALID / EXPIRED OTP CODE
+    // 5. INVALID / EXPIRED OTP CODE
     if (
       lowerMsg.includes('invalid token') ||
       lowerMsg.includes('token has expired') ||
@@ -142,11 +153,11 @@ export default function Login() {
       code === 'invalid_grant'
     ) {
       return {
-        message: "The verification code entered is invalid or has expired. Please check the code and try again.",
+        message: 'The verification code entered is invalid or has expired. Please check the code and try again.',
       }
     }
 
-    // 5. RATE LIMITING / SMTP / TOO MANY REQUESTS
+    // 6. RATE LIMITING / SMTP / TOO MANY REQUESTS
     if (
       lowerMsg.includes('rate limit') ||
       lowerMsg.includes('over_email_send_rate_limit') ||
@@ -154,14 +165,14 @@ export default function Login() {
       lowerMsg.includes('too many requests')
     ) {
       return {
-        message: "Too many attempts or email delivery limit reached. Please wait a minute before trying again.",
+        message: 'Too many attempts or email delivery limit reached. Please wait a moment or try again later.',
       }
     }
 
-    // 6. WEAK PASSWORD
+    // 7. WEAK PASSWORD
     if (lowerMsg.includes('weak password') || lowerMsg.includes('at least 6 characters')) {
       return {
-        message: "Password is too weak. Please use at least 6 characters.",
+        message: 'Password is too weak. Please use at least 6 characters.',
       }
     }
 
@@ -190,6 +201,7 @@ export default function Login() {
 
     setLoading(true)
     try {
+      // 1. Try Supabase Auth
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -200,24 +212,66 @@ export default function Login() {
         },
       })
 
+      if (!signUpError && data?.session?.access_token) {
+        localStorage.setItem('access_token', data.session.access_token)
+        sessionStorage.setItem('is_logged_in', 'true')
+        navigate('/')
+        return
+      }
+
+      if (!signUpError && data?.user) {
+        if (data.user.identities && data.user.identities.length === 0) {
+          setErrorInfo({
+            message: "This email is already registered. Please log in instead, or use Forgot Password if you don't remember your password.",
+            actionType: 'already_registered',
+          })
+          return
+        }
+
+        setMode('verify_signup')
+        setSuccessMessage(`We sent a 6-digit verification code to ${email}`)
+        setCooldown(60)
+        return
+      }
+
+      // 2. Fallback to Backend Auth endpoint (/api/v1/auth/register)
+      try {
+        const res = await api.post('/auth/register', { email, password })
+        if (res.data?.access_token) {
+          localStorage.setItem('access_token', res.data.access_token)
+          sessionStorage.setItem('is_logged_in', 'true')
+          navigate('/')
+          return
+        }
+      } catch (backendErr: any) {
+        console.error('Backend registration error:', backendErr)
+        if (backendErr.response?.data?.detail === 'Email already registered') {
+          setErrorInfo({
+            message: 'This email is already registered. Please log in instead.',
+            actionType: 'already_registered',
+          })
+          return
+        }
+      }
+
       if (signUpError) {
         setErrorInfo(mapAuthError(signUpError, 'signup'))
-        return
+      } else {
+        setErrorInfo({ message: 'Unable to complete sign up. Please try again.' })
       }
-
-      if (data?.user && data.user.identities && data.user.identities.length === 0) {
-        setErrorInfo({
-          message: "This email is already registered. Please log in instead, or use Forgot Password if you don't remember your password.",
-          actionType: 'already_registered',
-        })
-        return
-      }
-
-      setMode('verify_signup')
-      setSuccessMessage(`We sent a 6-digit verification code to ${email}`)
-      setCooldown(60)
     } catch (err: any) {
-      setErrorInfo(mapAuthError(err, 'signup'))
+      // Direct backend attempt fallback
+      try {
+        const res = await api.post('/auth/register', { email, password })
+        if (res.data?.access_token) {
+          localStorage.setItem('access_token', res.data.access_token)
+          sessionStorage.setItem('is_logged_in', 'true')
+          navigate('/')
+          return
+        }
+      } catch (backendErr) {
+        setErrorInfo(mapAuthError(err, 'signup'))
+      }
     } finally {
       setLoading(false)
     }
@@ -274,7 +328,7 @@ export default function Login() {
     const targetPassword = password || 'demo123456'
 
     try {
-      // 1. Attempt standard login
+      // 1. Attempt standard Supabase login
       const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email: targetEmail,
         password: targetPassword,
@@ -287,25 +341,22 @@ export default function Login() {
         return
       }
 
-      // 2. If user doesn't exist in Supabase yet, attempt auto-signup
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: targetEmail,
-        password: targetPassword,
-        options: {
-          data: { full_name: 'Demo Admin' },
-        },
-      })
-
-      if (!signUpError && signUpData.session?.access_token) {
-        localStorage.setItem('access_token', signUpData.session.access_token)
-        sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
-        return
+      // 2. Attempt Backend Auth endpoint (/api/v1/auth/login)
+      try {
+        const res = await api.post('/auth/login', { email: targetEmail, password: targetPassword })
+        if (res.data?.access_token) {
+          localStorage.setItem('access_token', res.data.access_token)
+          sessionStorage.setItem('is_logged_in', 'true')
+          navigate('/')
+          return
+        }
+      } catch (backendErr) {
+        console.error('Backend login failed:', backendErr)
       }
 
-      // 3. First deploy fallback for demo credentials
-      if (targetEmail === 'demo@redora.ai' || targetEmail === 'admin@redora.ai' || loginError) {
-        localStorage.setItem('access_token', signUpData?.session?.access_token || 'demo-access-token')
+      // 3. Fallback for demo credentials
+      if (targetEmail === 'demo@redora.ai' || targetEmail === 'admin@redora.ai') {
+        localStorage.setItem('access_token', 'demo-access-token')
         sessionStorage.setItem('is_logged_in', 'true')
         navigate('/')
         return
@@ -313,11 +364,17 @@ export default function Login() {
 
       if (loginError) {
         setErrorInfo(mapAuthError(loginError, 'login'))
+      } else {
+        setErrorInfo({ message: 'Login failed. Please check your credentials and try again.' })
       }
     } catch (err: any) {
-      sessionStorage.setItem('is_logged_in', 'true')
-      localStorage.setItem('access_token', 'demo-access-token')
-      navigate('/')
+      if (targetEmail === 'demo@redora.ai' || targetEmail === 'admin@redora.ai') {
+        sessionStorage.setItem('is_logged_in', 'true')
+        localStorage.setItem('access_token', 'demo-access-token')
+        navigate('/')
+      } else {
+        setErrorInfo(mapAuthError(err, 'login'))
+      }
     } finally {
       setLoading(false)
     }

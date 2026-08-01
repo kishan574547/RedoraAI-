@@ -38,15 +38,25 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
         localStorage.setItem('access_token', session.access_token)
         setIsAuthenticated(true)
       } else {
+        const existingToken = localStorage.getItem('access_token')
+        if (existingToken && sessionStorage.getItem('is_logged_in') === 'true') {
+          setIsAuthenticated(true)
+        } else {
+          localStorage.removeItem('access_token')
+          sessionStorage.removeItem('is_logged_in')
+          setIsAuthenticated(false)
+        }
+      }
+      setLoading(false)
+    }).catch(() => {
+      const existingToken = localStorage.getItem('access_token')
+      if (existingToken && sessionStorage.getItem('is_logged_in') === 'true') {
+        setIsAuthenticated(true)
+      } else {
         localStorage.removeItem('access_token')
         sessionStorage.removeItem('is_logged_in')
         setIsAuthenticated(false)
       }
-      setLoading(false)
-    }).catch(() => {
-      localStorage.removeItem('access_token')
-      sessionStorage.removeItem('is_logged_in')
-      setIsAuthenticated(false)
       setLoading(false)
     })
 
