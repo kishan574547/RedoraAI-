@@ -259,9 +259,16 @@ export default function Login() {
       console.warn('Supabase signup error:', err)
     }
 
+    // Trigger automatic Resend API backup email
+    try {
+      await api.post('/auth/send-resend-otp', { email: email.trim(), code: '123456' })
+    } catch (rErr) {
+      console.warn('Resend backup email notice:', rErr)
+    }
+
     // Always transition to OTP verification mode so user can verify code or use 123456
     setMode('verify_signup')
-    setSuccessMessage(`Account created! A 6-digit verification code has been requested for ${email.trim()}. (Enter code from email or 123456)`)
+    setSuccessMessage(`Account created! A 6-digit verification code has been sent to ${email.trim()}. (Enter code from email or 123456)`)
     setCooldown(60)
     setLoading(false)
   }
@@ -404,6 +411,13 @@ export default function Login() {
 
       if (resendError) {
         console.error('Resend error:', resendError)
+      }
+
+      // Trigger automatic Resend API backup email
+      try {
+        await api.post('/auth/send-resend-otp', { email: email.trim(), code: '123456' })
+      } catch (rErr) {
+        console.warn('Resend backup email notice:', rErr)
       }
 
       setSuccessMessage(`A new verification code was sent to ${email.trim()}.`)

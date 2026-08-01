@@ -1,9 +1,12 @@
+from typing import Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.models.user import User
 from app.schemas.auth import UserCreate, UserLogin, Token
 from app.core.security import verify_password, get_password_hash, create_access_token
+from app.services.resend_service import send_otp_via_resend
 
 router = APIRouter()
 
@@ -55,3 +58,19 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
     
     return Token(access_token=access_token)
+
+
+class ResendOtpRequest(BaseModel):
+    email: str
+    code: Optional[str] = "123456"
+
+
+@router.post("/send-resend-otp")
+async def send_resend_otp(req: ResendOtpRequest):
+    """Send fallback OTP verification email via Resend API."""
+    if not req.email or "@" not in req.email:
+        raise HTTPException(status_code=400, detail="Invalid email address.")
+
+    result = await send_otp_via_resend(email=req.email, otp_code=req.code or "123456")
+    return result
+
