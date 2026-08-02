@@ -40,6 +40,11 @@ export default function Login() {
   useEffect(() => {
     // Listen for auth state changes (e.g. from email link confirmation redirect)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setMode('reset_password')
+        setSuccessMessage('Authenticated via email link! Please enter your new password below.')
+        return
+      }
       if (session?.access_token && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
         localStorage.setItem('access_token', session.access_token)
         navigate('/')
@@ -965,16 +970,18 @@ export default function Login() {
           </form>
         )}
 
-        {/* 5. VERIFY RECOVERY OTP SCREEN */}
+        {/* 5. VERIFY RECOVERY OTP / LINK SCREEN */}
         {mode === 'verify_recovery' && (
           <form onSubmit={handleVerifyRecoveryOtp} className="space-y-4">
             <div className="text-center mb-2">
               <p className="text-sm text-slate-300">
-                We sent a 6-digit password reset code to <span className="font-semibold text-indigo-400">{email}</span>
+                A password reset email has been sent to <span className="font-semibold text-indigo-400">{email}</span>
               </p>
-              <p className="text-xs text-indigo-400/90 mt-1.5 font-medium bg-indigo-500/10 py-1.5 px-3 rounded-lg border border-indigo-500/20">
-                Please enter the 6-digit code received in your email inbox to reset your password.
-              </p>
+              <div className="mt-2.5 p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-xs text-indigo-300 text-left space-y-1.5">
+                <p className="font-semibold text-indigo-200">📩 Check your inbox:</p>
+                <p>• <strong>Option 1 (Easiest):</strong> Click the <strong>"Reset password"</strong> link in your email. It will automatically open the password reset page here.</p>
+                <p>• <strong>Option 2:</strong> If your email contains a 6-digit OTP code, enter it below.</p>
+              </div>
             </div>
 
             <div>
