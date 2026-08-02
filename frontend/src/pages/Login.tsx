@@ -38,15 +38,20 @@ export default function Login() {
 
   // Resend cooldown timer & magic link redirect handler
   useEffect(() => {
+    // Check if user landed via password recovery email link directly
+    if (window.location.hash.includes('type=recovery') || window.location.href.includes('type=recovery')) {
+      setMode('reset_password')
+      setSuccessMessage('Authenticated via password reset link! Please enter your new password below.')
+    }
+
     // Listen for auth state changes (e.g. from email link confirmation redirect)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setMode('reset_password')
-        setSuccessMessage('Authenticated via email link! Please enter your new password below.')
+        setSuccessMessage('Authenticated via password reset link! Please enter your new password below.')
         return
       }
-      if (session?.access_token && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
-        localStorage.setItem('access_token', session.access_token)
+      if (sessionStorage.getItem('is_logged_in') === 'true') {
         navigate('/')
       }
     })
@@ -482,7 +487,10 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const { error: resetReqError } = await supabase.auth.resetPasswordForEmail(trimmedEmail)
+      const redirectUrl = `${window.location.origin}/login`
+      const { error: resetReqError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: redirectUrl,
+      })
       if (resetReqError) {
         setErrorInfo(mapAuthError(resetReqError))
         setLoading(false)
@@ -490,7 +498,7 @@ export default function Login() {
       }
 
       setMode('verify_recovery')
-      setSuccessMessage(`Password reset code sent to ${trimmedEmail}. Please enter the 6-digit OTP code below.`)
+      setSuccessMessage(`Password reset link sent to ${trimmedEmail}. Click the link in your email to set a new password.`)
       setCooldown(60)
     } catch (err: any) {
       setErrorInfo(mapAuthError(err))
@@ -535,7 +543,7 @@ export default function Login() {
     }
   }
 
-  // Resend Recovery OTP
+  // Resend Recovery Link / OTP
   const handleResendRecoveryOtp = async () => {
     if (cooldown > 0) return
     clearMessages()
@@ -544,14 +552,17 @@ export default function Login() {
     const trimmedEmail = email.trim()
 
     try {
-      const { error: resendError } = await supabase.auth.resetPasswordForEmail(trimmedEmail)
+      const redirectUrl = `${window.location.origin}/login`
+      const { error: resendError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: redirectUrl,
+      })
       if (resendError) {
         setErrorInfo(mapAuthError(resendError))
         setLoading(false)
         return
       }
 
-      setSuccessMessage(`A new reset code has been sent to ${trimmedEmail}`)
+      setSuccessMessage(`A new reset link has been sent to ${trimmedEmail}`)
       setCooldown(60)
     } catch (err: any) {
       setErrorInfo(mapAuthError(err))
