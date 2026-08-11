@@ -18,7 +18,6 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../lib/api'
-import { ThemeToggle } from '../../components/ui/ThemeToggle'
 
 type ToolTab = 'merge' | 'split' | 'compress' | 'to-word' | 'extract-text'
 
@@ -336,9 +335,6 @@ function PdfToolkitContent() {
           <p className="text-slate-600 dark:text-slate-400 text-sm mt-1 max-w-xl">
             Fast, secure, in-memory PDF processing. Merge, split, compress, convert, or extract text with zero tracking.
           </p>
-        </div>
-        <div className="shrink-0 self-start md:self-center">
-          <ThemeToggle />
         </div>
       </div>
 

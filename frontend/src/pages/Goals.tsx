@@ -14,7 +14,6 @@ import {
 import { SuggestionsList, SuggestionItem } from '../components/ui/SuggestionsList'
 import { getAgentTheme } from '../lib/agentTheme'
 import { GoalRoadmapTimeline } from '../components/goals/GoalRoadmapTimeline'
-import { ThemeToggle } from '../components/ui/ThemeToggle'
 import api from '../lib/api'
 
 
@@ -154,10 +153,7 @@ function Goals() {
     })
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token')
-    navigate('/login')
-  }
+
 
   const getStatusColor = (status: Goal['status']) => {
     switch (status) {
@@ -181,46 +177,37 @@ function Goals() {
   }
 
   return (
-    <div className='min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-12 w-full max-w-full overflow-x-hidden transition-colors duration-200'>
-      <header className='bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4 sticky top-0 z-10 shadow-sm transition-colors duration-200'>
-        <div className='max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3'>
-          <div className='flex items-center gap-3 min-w-0'>
+    <div className='space-y-6 w-full max-w-full font-sans transition-colors duration-200'>
+      <div className='bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm transition-colors duration-200'>
+        <div className='flex items-center gap-3 min-w-0'>
+          <button
+            onClick={() => navigate('/')}
+            className='inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]'
+          >
+            <ArrowLeft className='w-4 h-4' /> <span className='hidden sm:inline'>Back to Dashboard</span>
+          </button>
+          <h1 className='text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-slate-100 truncate'>Goals & Learning Hub</h1>
+        </div>
+        
+        <div className='flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end'>
+          <div className='flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs'>
             <button
-              onClick={() => navigate('/')}
-              className='inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]'
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-lg font-semibold transition-all min-h-[38px] ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
             >
-              <ArrowLeft className='w-4 h-4' /> <span className='hidden sm:inline'>Back to Dashboard</span>
+              List View
             </button>
-            <h1 className='text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-slate-100 truncate'>Goals & Learning Hub</h1>
-          </div>
-          
-          <div className='flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end'>
-            <div className='flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs'>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 rounded-lg font-semibold transition-all min-h-[38px] ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
-              >
-                List View
-              </button>
-              <button
-                onClick={() => setViewMode('roadmap')}
-                className={`px-3 py-2 rounded-lg font-semibold transition-all min-h-[38px] ${viewMode === 'roadmap' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
-              >
-                Roadmap Timeline
-              </button>
-            </div>
             <button
-              onClick={handleLogout}
-              className='text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm font-medium shrink-0 min-h-[44px] px-2'
+              onClick={() => setViewMode('roadmap')}
+              className={`px-3 py-2 rounded-lg font-semibold transition-all min-h-[38px] ${viewMode === 'roadmap' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
             >
-              Sign Out
+              Roadmap Timeline
             </button>
-            <ThemeToggle />
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className='max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 w-full'>
+      <div className='space-y-6 w-full'>
         {/* Create Goal Form */}
         <div className='bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-6 border border-slate-200/80 dark:border-slate-800 transition-colors duration-200'>
           <h2 className='text-lg font-serif font-bold text-slate-900 dark:text-slate-100 mb-4'>Create New Goal</h2>
@@ -441,7 +428,7 @@ function Goals() {
             ))
           )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

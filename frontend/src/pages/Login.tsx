@@ -38,20 +38,10 @@ export default function Login() {
 
   // Resend cooldown timer & magic link redirect handler
   useEffect(() => {
-    // Check if user landed via password recovery email link directly
-    if (window.location.hash.includes('type=recovery') || window.location.href.includes('type=recovery')) {
-      setMode('reset_password')
-      setSuccessMessage('Authenticated via password reset link! Please enter your new password below.')
-    }
-
     // Listen for auth state changes (e.g. from email link confirmation redirect)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setMode('reset_password')
-        setSuccessMessage('Authenticated via password reset link! Please enter your new password below.')
-        return
-      }
-      if (sessionStorage.getItem('is_logged_in') === 'true') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.access_token && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
+        localStorage.setItem('access_token', session.access_token)
         navigate('/')
       }
     })
@@ -77,6 +67,8 @@ export default function Login() {
     setShowConfirmPassword(false)
     setShowNewPassword(false)
     setShowNewConfirmPassword(false)
+    setErrorInfo(null)
+    setSuccessMessage('')
   }, [mode])
 
   const clearMessages = () => {
@@ -91,73 +83,24 @@ export default function Login() {
       return { message: 'An unexpected error occurred. Please try again.' }
     }
 
-    let rawMsg = ''
     if (typeof err === 'string') {
-      rawMsg = err
-    } else if (err.message && typeof err.message === 'string') {
-      rawMsg = err.message
-    } else if (err.error_description && typeof err.error_description === 'string') {
-      rawMsg = err.error_description
-    } else if (err.response?.data?.detail) {
-      rawMsg = typeof err.response.data.detail === 'string' ? err.response.data.detail : JSON.stringify(err.response.data.detail)
-    } else if (err.msg) {
-      rawMsg = String(err.msg)
-    } else if (err.error && typeof err.error === 'string') {
-      rawMsg = err.error
-    } else {
-      try {
-        rawMsg = JSON.stringify(err, Object.getOwnPropertyNames(err))
-      } catch {
-        rawMsg = String(err)
+      const trimmed = err.trim()
+      if (trimmed === '' || trimmed === '{}') {
+        return { message: 'Authentication failed. Please check your details and try again.' }
       }
+      return { message: trimmed }
     }
 
-    // Try parsing if rawMsg is JSON object string
-    if (rawMsg.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(rawMsg)
-        if (parsed.message) rawMsg = parsed.message
-        else if (parsed.msg) rawMsg = parsed.msg
-        else if (parsed.error_description) rawMsg = parsed.error_description
-        else if (parsed.detail) rawMsg = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail)
-      } catch {
-        // Keep rawMsg as is
-      }
-    }
+    const rawMsg = err.message || err.error_description || err.msg || ''
+    const lowerMsg = typeof rawMsg === 'string' ? rawMsg.toLowerCase().trim() : ''
+    const code = (err.code || err.error || '').toString().toLowerCase().trim()
 
-    const lowerMsg = rawMsg.toLowerCase().trim()
-    const code = (err.code || err.error || err.status || err.statusCode || '').toString().toLowerCase().trim()
-
-    // 0. NETWORK / FETCH ERRORS
-    if (
-      lowerMsg.includes('failed to fetch') ||
-      lowerMsg.includes('networkerror') ||
-      lowerMsg.includes('network error') ||
-      lowerMsg.includes('fetch failed') ||
-      lowerMsg.includes('cors')
-    ) {
-      return {
-        message: 'Network Error: Unable to connect to Supabase Auth. Please check your internet connection or verify your Supabase project URL.',
-      }
-    }
-
-    // 1. INVALID CREDENTIALS ON LOGIN
+    // 1. LOGIN WITH UNREGISTERED EMAIL / INVALID CREDENTIALS
     if (
       context === 'login' &&
       (code === 'invalid_credentials' ||
        lowerMsg.includes('invalid login credentials') ||
-       lowerMsg.includes('incorrect email or password') ||
-       lowerMsg.includes('invalid credentials'))
-    ) {
-      return {
-        message: 'Invalid email or password. Please check your credentials and try again.',
-      }
-    }
-
-    // 2. UNREGISTERED USER ON LOGIN
-    if (
-      context === 'login' &&
-      (lowerMsg.includes('user not found') ||
+       lowerMsg.includes('user not found') ||
        lowerMsg.includes('email not found') ||
        lowerMsg.includes('no user'))
     ) {
@@ -167,9 +110,9 @@ export default function Login() {
       }
     }
 
-    // 3. SIGNUP WITH ALREADY-REGISTERED EMAIL
+    // 2. SIGNUP WITH ALREADY-REGISTERED EMAIL
     if (
-      (context === 'signup' || lowerMsg.includes('already registered')) &&
+      context === 'signup' &&
       (code === 'user_already_exists' ||
        lowerMsg.includes('user already registered') ||
        lowerMsg.includes('user already exists') ||
@@ -182,15 +125,15 @@ export default function Login() {
       }
     }
 
-    // 4. EMAIL NOT CONFIRMED / UNVERIFIED
+    // 3. EMAIL NOT CONFIRMED / UNVERIFIED
     if (lowerMsg.includes('email not confirmed') || lowerMsg.includes('unconfirmed email')) {
       return {
-        message: "Please verify your email before signing in.",
+        message: "Your email address hasn't been verified yet. Please enter your verification code or resend a new one.",
         actionType: 'verify_email',
       }
     }
 
-    // 5. INVALID / EXPIRED OTP CODE
+    // 4. INVALID / EXPIRED OTP CODE
     if (
       lowerMsg.includes('invalid token') ||
       lowerMsg.includes('token has expired') ||
@@ -199,80 +142,44 @@ export default function Login() {
       code === 'invalid_grant'
     ) {
       return {
-        message: 'The verification code entered is invalid or has expired. Please check the code and try again.',
+        message: "The verification code entered is invalid or has expired. Please check the code and try again.",
       }
     }
 
-    // 6. EMAIL DELIVERY / RATE LIMITING / TOO MANY REQUESTS
-    if (
-      lowerMsg.includes('error sending confirmation email') ||
-      lowerMsg.includes('confirmation email') ||
-      lowerMsg.includes('smtp')
-    ) {
-      return {
-        message: 'Unable to send verification email. Please check your Supabase Auth Email Provider configuration in Supabase Dashboard.',
-      }
-    }
-
+    // 5. RATE LIMITING / SMTP / TOO MANY REQUESTS
     if (
       lowerMsg.includes('rate limit') ||
       lowerMsg.includes('over_email_send_rate_limit') ||
+      lowerMsg.includes('smtp') ||
       lowerMsg.includes('too many requests')
     ) {
       return {
-        message: 'Too many requests or email rate limit reached. Please wait a moment and try again.',
+        message: "Too many attempts or email delivery limit reached. Please wait a minute before trying again.",
       }
     }
 
-    // 7. WEAK PASSWORD
-    if (lowerMsg.includes('weak password') || lowerMsg.includes('at least 6 characters') || lowerMsg.includes('password should be at least')) {
+    // 6. WEAK PASSWORD
+    if (lowerMsg.includes('weak password') || lowerMsg.includes('at least 6 characters')) {
       return {
-        message: 'Password does not meet requirements. Please use at least 6 characters.',
+        message: "Password is too weak. Please use at least 6 characters.",
       }
     }
 
-    // 8. INVALID EMAIL
-    if (lowerMsg.includes('invalid email') || lowerMsg.includes('unable to validate email')) {
-      return {
-        message: 'Invalid email address. Please check your email and try again.',
-      }
+    // Fallback cleanup if error message is blank, JSON, or obscure
+    if (!lowerMsg || lowerMsg === '{}' || lowerMsg.startsWith('{')) {
+      return { message: 'Authentication failed. Please check your details and try again.' }
     }
 
-    // Fallback: Return rawMsg or error string directly
-    console.warn('UNMAPPED AUTH ERROR TYPE:', { err, code, rawMsg })
-
-    if (rawMsg && rawMsg !== '{}' && rawMsg !== '[]') {
-      return { message: rawMsg }
-    }
-
-    return { message: code ? `Authentication Error (${code})` : 'An unexpected authentication error occurred.' }
+    return { message: rawMsg }
   }
 
-  // Handle Signup (Frontend -> Supabase Auth directly)
+  // Handle Signup
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     clearMessages()
 
-    const trimmedFullName = fullName.trim()
-    const trimmedEmail = email.trim()
-
-    if (!trimmedFullName) {
+    if (!fullName.trim()) {
       setErrorInfo({ message: 'Please enter your full name.' })
-      return
-    }
-
-    if (!trimmedEmail) {
-      setErrorInfo({ message: 'Please enter your email address.' })
-      return
-    }
-
-    if (!password) {
-      setErrorInfo({ message: 'Please enter a password.' })
-      return
-    }
-
-    if (password.length < 6) {
-      setErrorInfo({ message: 'Password must be at least 6 characters long.' })
       return
     }
 
@@ -282,54 +189,32 @@ export default function Login() {
     }
 
     setLoading(true)
-
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: trimmedEmail,
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
           data: {
-            full_name: trimmedFullName,
-            display_name: trimmedFullName,
+            full_name: fullName.trim(),
           },
         },
       })
 
-      if (error) {
-        console.error('FULL SIGNUP ERROR RESPONSE:', {
-          status: (error as any).status || (error as any).statusCode,
-          message: error.message,
-          code: (error as any).code || (error as any).error,
-          name: error.name,
-          errorObj: error,
-        })
-        setErrorInfo(mapAuthError(error, 'signup'))
-        setLoading(false)
+      if (signUpError) {
+        setErrorInfo(mapAuthError(signUpError, 'signup'))
         return
       }
 
-      // Check if email is already registered (Supabase returns empty identities array when user exists and email enumeration protection is on)
-      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      if (data?.user && data.user.identities && data.user.identities.length === 0) {
         setErrorInfo({
           message: "This email is already registered. Please log in instead, or use Forgot Password if you don't remember your password.",
           actionType: 'already_registered',
         })
-        setLoading(false)
         return
       }
 
-      // If instant session is granted (email confirmation disabled in Supabase)
-      if (data?.session?.access_token) {
-        localStorage.setItem('access_token', data.session.access_token)
-        sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
-        return
-      }
-
-      // Otherwise, transition to OTP Verification screen
       setMode('verify_signup')
-      setSuccessMessage(`Verification code sent to ${trimmedEmail}. Please enter the 6-digit code below.`)
+      setSuccessMessage(`We sent a 6-digit verification code to ${email}`)
       setCooldown(60)
     } catch (err: any) {
       setErrorInfo(mapAuthError(err, 'signup'))
@@ -338,44 +223,40 @@ export default function Login() {
     }
   }
 
-  // Verify Signup OTP via Supabase Auth
+  // Verify Signup OTP
   const handleVerifySignupOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     clearMessages()
 
-    const trimmedEmail = email.trim()
-    const trimmedOtp = otpCode.trim()
-
-    if (trimmedOtp.length < 6) {
-      setErrorInfo({ message: 'Please enter the complete 6-digit verification code.' })
+    if (otpCode.length < 6) {
+      setErrorInfo({ message: 'Please enter the complete 6-digit code.' })
       return
     }
 
     setLoading(true)
-
     try {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email: trimmedEmail,
-        token: trimmedOtp,
+        email,
+        token: otpCode.trim(),
         type: 'signup',
       })
 
       if (verifyError) {
         setErrorInfo(mapAuthError(verifyError, 'otp'))
-        setLoading(false)
         return
       }
 
-      if (data?.session?.access_token) {
+      if (data.session?.access_token) {
         localStorage.setItem('access_token', data.session.access_token)
         sessionStorage.setItem('is_logged_in', 'true')
         navigate('/')
-        return
+      } else {
+        setMode('login')
+        setSuccessMessage('Email verified successfully! You can now log in.')
+        setPassword('')
+        setConfirmPassword('')
+        setOtpCode('')
       }
-
-      setMode('login')
-      setSuccessMessage('Email verified successfully! Please sign in with your email and password.')
-      setOtpCode('')
     } catch (err: any) {
       setErrorInfo(mapAuthError(err, 'otp'))
     } finally {
@@ -383,55 +264,28 @@ export default function Login() {
     }
   }
 
-  // Handle Login via Supabase Auth
-  const handleLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
+  // Handle Login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
     clearMessages()
-
-    const trimmedEmail = email.trim()
-    const targetPassword = password
-
-    if (!trimmedEmail) {
-      setErrorInfo({ message: 'Please enter your email address.' })
-      return
-    }
-
-    if (!targetPassword) {
-      setErrorInfo({ message: 'Please enter your password.' })
-      return
-    }
-
     setLoading(true)
 
     try {
-      // Standard Supabase login
       const { data, error: loginError } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password: targetPassword,
+        email,
+        password,
       })
 
       if (loginError) {
         setErrorInfo(mapAuthError(loginError, 'login'))
-        setLoading(false)
         return
       }
 
-      if (data?.session?.access_token) {
+      if (data.session?.access_token) {
         localStorage.setItem('access_token', data.session.access_token)
         sessionStorage.setItem('is_logged_in', 'true')
         navigate('/')
-        return
       }
-
-      // Fallback demo account
-      if (trimmedEmail === 'demo@redora.ai' && targetPassword === 'demo123456') {
-        localStorage.setItem('access_token', 'demo-access-token')
-        sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
-        return
-      }
-
-      setErrorInfo({ message: 'Invalid email or password. Please check your credentials and try again.' })
     } catch (err: any) {
       setErrorInfo(mapAuthError(err, 'login'))
     } finally {
@@ -439,32 +293,24 @@ export default function Login() {
     }
   }
 
-  // Resend OTP for Signup via Supabase Auth
+  // Resend OTP for Signup
   const handleResendSignupOtp = async () => {
     if (cooldown > 0) return
     clearMessages()
     setLoading(true)
 
-    const trimmedEmail = email.trim()
-    if (!trimmedEmail) {
-      setErrorInfo({ message: 'Please enter your email address.' })
-      setLoading(false)
-      return
-    }
-
     try {
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
-        email: trimmedEmail,
+        email,
       })
 
       if (resendError) {
         setErrorInfo(mapAuthError(resendError))
-        setLoading(false)
         return
       }
 
-      setSuccessMessage(`A new verification code was sent to ${trimmedEmail}.`)
+      setSuccessMessage(`A new verification code has been sent to ${email}`)
       setCooldown(60)
     } catch (err: any) {
       setErrorInfo(mapAuthError(err))
@@ -477,28 +323,17 @@ export default function Login() {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     clearMessages()
-
-    const trimmedEmail = email.trim()
-    if (!trimmedEmail) {
-      setErrorInfo({ message: 'Please enter your email address.' })
-      return
-    }
-
     setLoading(true)
 
     try {
-      const redirectUrl = `${window.location.origin}/login`
-      const { error: resetReqError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: redirectUrl,
-      })
+      const { error: resetReqError } = await supabase.auth.resetPasswordForEmail(email)
       if (resetReqError) {
         setErrorInfo(mapAuthError(resetReqError))
-        setLoading(false)
         return
       }
 
       setMode('verify_recovery')
-      setSuccessMessage(`Password reset link sent to ${trimmedEmail}. Click the link in your email to set a new password.`)
+      setSuccessMessage(`Password reset code sent to ${email}`)
       setCooldown(60)
     } catch (err: any) {
       setErrorInfo(mapAuthError(err))
@@ -512,25 +347,21 @@ export default function Login() {
     e.preventDefault()
     clearMessages()
 
-    const trimmedEmail = email.trim()
-    const trimmedOtp = otpCode.trim()
-
-    if (trimmedOtp.length < 6) {
-      setErrorInfo({ message: 'Please enter the complete 6-digit code.' })
+    if (otpCode.length < 6) {
+      setErrorInfo({ message: 'Please enter the 6-digit code.' })
       return
     }
 
     setLoading(true)
     try {
       const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: trimmedEmail,
-        token: trimmedOtp,
+        email,
+        token: otpCode.trim(),
         type: 'recovery',
       })
 
       if (verifyError) {
         setErrorInfo(mapAuthError(verifyError, 'otp'))
-        setLoading(false)
         return
       }
 
@@ -543,26 +374,20 @@ export default function Login() {
     }
   }
 
-  // Resend Recovery Link / OTP
+  // Resend Recovery OTP
   const handleResendRecoveryOtp = async () => {
     if (cooldown > 0) return
     clearMessages()
     setLoading(true)
 
-    const trimmedEmail = email.trim()
-
     try {
-      const redirectUrl = `${window.location.origin}/login`
-      const { error: resendError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: redirectUrl,
-      })
+      const { error: resendError } = await supabase.auth.resetPasswordForEmail(email)
       if (resendError) {
         setErrorInfo(mapAuthError(resendError))
-        setLoading(false)
         return
       }
 
-      setSuccessMessage(`A new reset link has been sent to ${trimmedEmail}`)
+      setSuccessMessage(`A new reset code has been sent to ${email}`)
       setCooldown(60)
     } catch (err: any) {
       setErrorInfo(mapAuthError(err))
@@ -581,11 +406,6 @@ export default function Login() {
       return
     }
 
-    if (newPassword.length < 6) {
-      setErrorInfo({ message: 'New password must be at least 6 characters long.' })
-      return
-    }
-
     setLoading(true)
     try {
       const { error: updateError } = await supabase.auth.updateUser({
@@ -594,7 +414,6 @@ export default function Login() {
 
       if (updateError) {
         setErrorInfo(mapAuthError(updateError, 'reset'))
-        setLoading(false)
         return
       }
 
@@ -981,18 +800,13 @@ export default function Login() {
           </form>
         )}
 
-        {/* 5. VERIFY RECOVERY OTP / LINK SCREEN */}
+        {/* 5. VERIFY RECOVERY OTP SCREEN */}
         {mode === 'verify_recovery' && (
           <form onSubmit={handleVerifyRecoveryOtp} className="space-y-4">
             <div className="text-center mb-2">
               <p className="text-sm text-slate-300">
-                A password reset email has been sent to <span className="font-semibold text-indigo-400">{email}</span>
+                We sent a 6-digit password reset code to <span className="font-semibold text-indigo-400">{email}</span>
               </p>
-              <div className="mt-2.5 p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-xs text-indigo-300 text-left space-y-1.5">
-                <p className="font-semibold text-indigo-200">📩 Check your inbox:</p>
-                <p>• <strong>Option 1 (Easiest):</strong> Click the <strong>"Reset password"</strong> link in your email. It will automatically open the password reset page here.</p>
-                <p>• <strong>Option 2:</strong> If your email contains a 6-digit OTP code, enter it below.</p>
-              </div>
             </div>
 
             <div>

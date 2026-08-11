@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../lib/api'
-import { ThemeToggle } from '../../components/ui/ThemeToggle'
 
 interface Runtime {
   language: string
@@ -236,10 +235,6 @@ function CodeSandboxContent() {
           <p className="text-slate-600 dark:text-slate-400 text-sm mt-1 max-w-xl">
             Compile and run Python, JavaScript, C++, Java, Go, Rust, and TypeScript code isolated in secure execution containers.
           </p>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <ThemeToggle />
         </div>
       </div>
 

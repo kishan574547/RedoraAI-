@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { 
   CheckSquare, 
   Target, 
+  LogOut, 
   ArrowRight,
   Brain,
   Bot,
@@ -216,6 +217,10 @@ function Dashboard() {
     })
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    navigate('/login')
+  }
 
   const filteredTasks = tasks.filter((task) => {
     if (activeTaskTab === 'all') return true
@@ -257,9 +262,9 @@ function Dashboard() {
   }
 
   return (
-    <div className='min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 p-4 md:p-6 transition-colors duration-300 space-y-6'>
+    <div className='space-y-6 w-full max-w-full transition-colors duration-300'>
       {/* 1. COMPACT TOP APP BAR / BRAND HEADER */}
-      <header className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800'>
+      <header className='flex items-center justify-between pb-2 border-b border-slate-800/80 dark:border-slate-800'>
         <div className='flex items-center space-x-3'>
           <img src="/logo.jpg" alt="Redora AI Logo" className='w-9 h-9 rounded-xl object-cover shadow-md border border-indigo-500/20' />
           <div>
@@ -268,8 +273,7 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className='flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end flex-wrap'>
-          <div className='flex items-center gap-2'>
+          <div className='flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end'>
             <button
               onClick={() => navigate('/tasks')}
               className='p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-all border border-slate-200/80 dark:border-slate-700 shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center'
@@ -284,16 +288,21 @@ function Dashboard() {
             >
               <Target className='w-4 h-4 text-purple-600 dark:text-purple-400' />
             </button>
+            <button
+              onClick={() => navigate('/chat')}
+              className='inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-all shadow-sm shadow-indigo-600/20 min-h-[44px]'
+            >
+              <Bot className='w-4 h-4' />
+              <span>Ask AI Agents</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className='p-3 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center'
+              title='Sign Out'
+            >
+              <LogOut className='w-5 h-5' />
+            </button>
           </div>
-
-          <button
-            onClick={() => navigate('/chat')}
-            className='inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-all shadow-sm shadow-indigo-600/20 min-h-[44px]'
-          >
-            <Bot className='w-4 h-4' />
-            <span>Ask AI Agents</span>
-          </button>
-        </div>
       </header>
 
       {/* Main Container */}

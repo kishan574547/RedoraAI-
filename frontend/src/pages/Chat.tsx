@@ -28,7 +28,6 @@ import {
 import { SuggestionsList, SuggestionItem } from '../components/ui/SuggestionsList'
 import { CalendarConfirmModal } from '../components/ui/CalendarConfirmModal'
 import { getAgentTheme } from '../lib/agentTheme'
-import { ThemeToggle } from '../components/ui/ThemeToggle'
 import api from '../lib/api'
 
 
@@ -482,7 +481,7 @@ export default function Chat() {
   const groupedSessions = groupSessionsByDate(sessions)
 
   return (
-    <div className='flex h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 overflow-hidden relative w-full max-w-full transition-colors duration-200'>
+    <div className='flex h-[calc(100vh-6rem)] min-h-[500px] bg-white dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-100 overflow-hidden relative w-full max-w-full rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-200'>
       {/* Mobile Backdrop Overlay when Sidebar is open */}
       {isSidebarOpen && (
         <div
@@ -706,7 +705,6 @@ export default function Chat() {
             >
               Goals
             </button>
-            <ThemeToggle />
           </div>
         </header>
 

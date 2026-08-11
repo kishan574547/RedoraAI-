@@ -14,7 +14,6 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../lib/api'
-import { ThemeToggle } from '../../components/ui/ThemeToggle'
 
 interface KaggleDataset {
   ref: string
@@ -97,10 +96,6 @@ export default function KaggleExplorer() {
               Explore public datasets, machine learning models, and competitive data science challenges.
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <ThemeToggle />
         </div>
       </div>
 

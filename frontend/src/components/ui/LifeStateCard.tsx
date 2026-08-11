@@ -54,13 +54,13 @@ export function LifeStateCard({
   return (
     <div className='bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-950 text-white rounded-3xl p-6 shadow-xl border border-indigo-500/30 space-y-6 font-sans relative overflow-hidden transition-colors duration-200'>
       {/* Top Banner */}
-      <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-indigo-500/20 pb-4'>
-        <div className='flex items-center gap-3 flex-wrap'>
-          <div className='w-10 h-10 rounded-2xl bg-indigo-600/40 border border-indigo-400/40 flex items-center justify-center text-indigo-300 shadow-inner shrink-0'>
+      <div className='flex items-center justify-between border-b border-indigo-500/20 pb-4'>
+        <div className='flex items-center gap-3'>
+          <div className='w-10 h-10 rounded-2xl bg-indigo-600/40 border border-indigo-400/40 flex items-center justify-center text-indigo-300 shadow-inner'>
             <Compass className='w-5 h-5 animate-pulse' />
           </div>
           <div>
-            <h2 className='text-lg font-serif font-bold text-white flex flex-wrap items-center gap-2'>
+            <h2 className='text-lg font-serif font-bold text-white flex items-center gap-2'>
               <span>State of Your Life</span>
               <span className='text-xs font-sans uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 font-semibold'>
                 AI Live Synthesis
@@ -70,7 +70,7 @@ export function LifeStateCard({
           </div>
         </div>
 
-        <div className='flex items-center gap-2 flex-wrap'>
+        <div className='flex items-center gap-2'>
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${workloadColor}`}>
             {workloadBalance}
           </span>

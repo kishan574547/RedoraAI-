@@ -16,7 +16,6 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../lib/api'
-import { ThemeToggle } from '../../components/ui/ThemeToggle'
 
 interface RuleItem {
   name: string
@@ -377,9 +376,6 @@ function ResumeAtsCheckerContent() {
           <p className="text-slate-600 dark:text-slate-400 text-sm mt-1 max-w-xl">
             Evaluate your resume for Applicant Tracking Systems (ATS), type custom instructions for OpenRouter AI Agent, and download an optimized resume document.
           </p>
-        </div>
-        <div className="shrink-0 self-start md:self-center">
-          <ThemeToggle />
         </div>
       </div>
 

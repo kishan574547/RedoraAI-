@@ -4,7 +4,6 @@ import { ArrowLeft, CheckSquare, Bot, ExternalLink, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { getAgentTheme } from '../lib/agentTheme'
 import { CalendarConfirmModal } from '../components/ui/CalendarConfirmModal'
-import { ThemeToggle } from '../components/ui/ThemeToggle'
 
 interface Task {
   id: number
@@ -109,10 +108,7 @@ function Tasks() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token')
-    navigate('/login')
-  }
+
 
   const getStatusColor = (status: Task['status']) => {
     switch (status) {
@@ -136,32 +132,20 @@ function Tasks() {
   }
 
   return (
-    <div className='min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-12 w-full max-w-full overflow-x-hidden transition-colors duration-200'>
-      <header className='bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4 sticky top-0 z-10 shadow-sm transition-colors duration-200'>
-        <div className='max-w-4xl mx-auto flex items-center justify-between gap-3'>
-          <div className='flex items-center gap-3 min-w-0'>
-            <button
-              onClick={() => navigate('/')}
-              className='inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]'
-            >
-              <ArrowLeft className='w-4 h-4' /> <span className='hidden sm:inline'>Back to Dashboard</span>
-            </button>
-            <h1 className='text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-slate-100 truncate'>Tasks Management</h1>
-          </div>
-
-          <div className='flex items-center gap-2 shrink-0'>
-            <ThemeToggle />
-            <button
-              onClick={handleLogout}
-              className='text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm font-medium min-h-[44px] px-2'
-            >
-              Sign Out
-            </button>
-          </div>
+    <div className='space-y-6 w-full max-w-full font-sans transition-colors duration-200'>
+      <div className='bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 flex items-center justify-between gap-3 shadow-sm transition-colors duration-200'>
+        <div className='flex items-center gap-3 min-w-0'>
+          <button
+            onClick={() => navigate('/')}
+            className='inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]'
+          >
+            <ArrowLeft className='w-4 h-4' /> <span className='hidden sm:inline'>Back to Dashboard</span>
+          </button>
+          <h1 className='text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-slate-100 truncate'>Tasks Management</h1>
         </div>
-      </header>
+      </div>
 
-      <main className='max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 w-full'>
+      <div className='space-y-6 w-full'>
         <div className='bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 transition-colors duration-200'>
           <h2 className='text-lg font-serif font-bold text-slate-900 dark:text-slate-100 mb-4'>Create New Task</h2>
           <form onSubmit={handleCreateTask} className='space-y-4'>
@@ -282,7 +266,7 @@ function Tasks() {
             ))
           )}
         </div>
-      </main>
+      </div>
 
       {/* Calendar Confirmation Modal */}
       {calendarModalTask && (

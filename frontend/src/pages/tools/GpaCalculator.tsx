@@ -16,7 +16,6 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../lib/api'
-import { ThemeToggle } from '../../components/ui/ThemeToggle'
 
 interface SubjectRow {
   id: string
@@ -207,7 +206,6 @@ export default function GpaCalculator() {
               <p className="text-xs text-slate-500">{totalCumulativeCredits} Total Credits Saved</p>
             </div>
           </div>
-          <ThemeToggle />
         </div>
       </div>
 

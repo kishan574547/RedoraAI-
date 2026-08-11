@@ -10,6 +10,7 @@ import GpaCalculator from './pages/tools/GpaCalculator'
 import CodeSandbox from './pages/tools/CodeSandbox'
 import ResumeAtsChecker from './pages/tools/ResumeAtsChecker'
 import KaggleExplorer from './pages/tools/KaggleExplorer'
+import Settings from './pages/Settings'
 
 import AppLayout from './components/layout/AppLayout'
 import { QuickWidget } from './components/ui/QuickWidget'
@@ -38,25 +39,15 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
         localStorage.setItem('access_token', session.access_token)
         setIsAuthenticated(true)
       } else {
-        const existingToken = localStorage.getItem('access_token')
-        if (existingToken && sessionStorage.getItem('is_logged_in') === 'true') {
-          setIsAuthenticated(true)
-        } else {
-          localStorage.removeItem('access_token')
-          sessionStorage.removeItem('is_logged_in')
-          setIsAuthenticated(false)
-        }
-      }
-      setLoading(false)
-    }).catch(() => {
-      const existingToken = localStorage.getItem('access_token')
-      if (existingToken && sessionStorage.getItem('is_logged_in') === 'true') {
-        setIsAuthenticated(true)
-      } else {
         localStorage.removeItem('access_token')
         sessionStorage.removeItem('is_logged_in')
         setIsAuthenticated(false)
       }
+      setLoading(false)
+    }).catch(() => {
+      localStorage.removeItem('access_token')
+      sessionStorage.removeItem('is_logged_in')
+      setIsAuthenticated(false)
       setLoading(false)
     })
 
@@ -120,6 +111,7 @@ function App() {
           <Route path="/tools/sandbox" element={<ProtectedRoute><CodeSandbox /></ProtectedRoute>} />
           <Route path="/tools/resume-ats" element={<ProtectedRoute><ResumeAtsChecker /></ProtectedRoute>} />
           <Route path="/tools/kaggle" element={<ProtectedRoute><KaggleExplorer /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

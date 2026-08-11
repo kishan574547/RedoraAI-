@@ -13,7 +13,8 @@ import {
   Calculator,
   Code2,
   FileCheck,
-  Database
+  Database,
+  Settings
 } from 'lucide-react'
 import { NetworkStatusBanner } from '../ui/UIStates'
 import { ThemeToggle } from '../ui/ThemeToggle'
@@ -56,17 +57,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex font-sans relative transition-colors duration-200">
       <NetworkStatusBanner />
       {/* Sidebar for Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white dark:bg-slate-900/80 backdrop-blur-md border-r border-slate-200 dark:border-slate-800 p-6 flex-shrink-0 transition-colors duration-200">
-        <div className="flex items-center space-x-3 mb-8">
-          <img src="/logo.jpg" alt="Redora AI Logo" className="h-9 w-9 rounded-xl object-cover shadow-sm border border-indigo-500/20" />
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 fixed left-0 top-0 bottom-0 h-screen bg-white dark:bg-slate-900/80 backdrop-blur-md border-r border-slate-200 dark:border-slate-800 p-4 z-30 overflow-hidden shrink-0 transition-colors duration-200 justify-between">
+        <div className="flex items-center space-x-3 mb-4">
+          <img src="/logo.jpg" alt="Redora AI Logo" className="h-8 w-8 rounded-xl object-cover shadow-sm border border-indigo-500/20" />
           <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-purple-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent font-serif">
             Redora AI
           </span>
         </div>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto">
+        <nav className="flex-1 flex flex-col justify-between overflow-hidden min-h-0 space-y-3">
           {/* Top Primary Nav Items */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {primaryNavItems.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.path
@@ -74,13 +75,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group min-h-[44px] ${
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 group min-h-[38px] ${
                     isActive 
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium' 
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`} />
+                  <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`} />
                   <span className="font-medium text-sm">{item.name}</span>
                 </Link>
               )
@@ -88,14 +89,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           {/* Divider */}
-          <div className="border-t border-slate-200 dark:border-slate-800/80 my-4" />
+          <div className="border-t border-slate-200 dark:border-slate-800/80 my-1" />
 
           {/* Tools Section Header & Sub-items */}
-          <div className="space-y-2">
-            <div className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="space-y-1 overflow-y-auto min-h-0 flex-1 scrollbar-none">
+            <div className="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
               Tools
             </div>
-            <div className="space-y-1 pl-2">
+            <div className="space-y-0.5 pl-1">
               {toolNavItems.map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
@@ -103,34 +104,55 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all duration-200 group min-h-[44px] ${
+                    className={`flex items-center space-x-3 px-3 py-1.5 rounded-lg transition-all duration-200 group min-h-[36px] ${
                       isActive 
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium' 
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100'
                     }`}
                   >
                     <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`} />
-                    <span className="font-medium text-sm">{item.name}</span>
+                    <span className="font-medium text-xs sm:text-sm">{item.name}</span>
                   </Link>
                 )
               })}
             </div>
           </div>
+
+          {/* Settings Section Item */}
+          <div className="pt-1 border-t border-slate-200 dark:border-slate-800/80">
+            <Link
+              to="/settings"
+              className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 group min-h-[38px] ${
+                location.pathname === '/settings' 
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium' 
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100'
+              }`}
+            >
+              <Settings className={`h-4.5 w-4.5 ${location.pathname === '/settings' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`} />
+              <span className="font-medium text-sm">Settings</span>
+            </Link>
+          </div>
         </nav>
 
-        <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
+        <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <div className="flex items-center justify-between px-2">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Theme
+            </span>
+            <ThemeToggle />
+          </div>
           <button
             onClick={handleLogout}
-            className="flex items-center space-x-3 px-4 py-3 w-full rounded-lg text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-all duration-200 min-h-[44px]"
+            className="flex items-center space-x-3 px-3 py-2 w-full rounded-lg text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-all duration-200 min-h-[40px]"
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-4.5 w-4.5" />
             <span className="font-medium text-sm">Sign Out</span>
           </button>
         </div>
       </aside>
 
       {/* Mobile & Tablet Navigation Header */}
-      <div className="flex flex-col flex-1 min-w-0 w-full overflow-x-hidden">
+      <div className="flex flex-col flex-1 min-w-0 w-full lg:pl-64 overflow-x-hidden">
         <header className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 transition-colors duration-200">
           <div className="flex items-center space-x-3">
             <img src="/logo.jpg" alt="Redora AI Logo" className="h-8 w-8 rounded-lg object-cover shadow-sm border border-indigo-500/20" />
@@ -216,6 +238,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   })}
                 </div>
               </div>
+
+              <div className="border-t border-slate-800 my-4" />
+
+              <Link
+                to="/settings"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center space-x-4 px-4 py-3.5 rounded-xl min-h-[48px] ${
+                  location.pathname === '/settings'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold'
+                    : 'text-slate-300 hover:bg-slate-800/60'
+                }`}
+              >
+                <Settings className="h-6 w-6" />
+                <span className="font-semibold text-base">Settings</span>
+              </Link>
             </nav>
             <button
               onClick={handleLogout}

@@ -63,28 +63,6 @@ def on_startup():
             pass
     logger.info("Database schema initialized and verified.")
 
-    # Seed default user if none exists
-    try:
-        from app.db.session import SessionLocal
-        from app.db.models.user import User
-        from app.core.security import get_password_hash
-
-        db = SessionLocal()
-        try:
-            admin_user = db.query(User).filter(User.email == "demo@redora.ai").first()
-            if not admin_user:
-                default_user = User(
-                    email="demo@redora.ai",
-                    hashed_password=get_password_hash("demo123456")
-                )
-                db.add(default_user)
-                db.commit()
-                logger.info("Created default demo user: demo@redora.ai / demo123456")
-        finally:
-            db.close()
-    except Exception as e:
-        logger.warning(f"Could not seed default user: {e}")
-
 
 
 @app.get("/")
