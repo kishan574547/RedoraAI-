@@ -85,7 +85,7 @@ class OpenRouterClient:
             target_models = []
             if model_name and "gemini" in model_name.lower():
                 target_models.append(model_name)
-            target_models.extend(["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"])
+            target_models.extend(["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.0-flash", "gemini-pro-latest", "gemini-2.5-pro"])
             target_models = list(dict.fromkeys(target_models))
 
             for g_model in target_models:
