@@ -3,9 +3,13 @@ import axios from 'axios'
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL
   if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
-    return envUrl.trim().replace(/\/$/, '')
+    let url = envUrl.trim().replace(/\/$/, '')
+    if (url.endsWith('/api/v1')) {
+      url = url.substring(0, url.length - 7)
+    }
+    return url
   }
-  return '/api/v1'
+  return ''
 }
 
 export const api = axios.create({
@@ -15,8 +19,17 @@ export const api = axios.create({
   },
 })
 
-// Attach bearer token if stored
+// Request interceptor to attach token and ensure /api/v1 prefix is present
 api.interceptors.request.use((config) => {
+  if (config.url && !config.url.startsWith('http://') && !config.url.startsWith('https://')) {
+    let path = config.url.startsWith('/') ? config.url : `/${config.url}`
+    if (!path.startsWith('/api/v1')) {
+      config.url = `/api/v1${path}`
+    } else {
+      config.url = path
+    }
+  }
+
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
