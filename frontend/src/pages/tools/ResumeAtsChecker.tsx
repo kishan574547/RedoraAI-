@@ -212,9 +212,7 @@ function ResumeAtsCheckerContent() {
         formData.append('job_description', jobDescription.trim())
       }
 
-      const res = await api.post('/tools/resume-ats/check', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      const res = await api.post('/tools/resume-ats/check', formData)
 
       setResults(res.data)
     } catch (err: any) {

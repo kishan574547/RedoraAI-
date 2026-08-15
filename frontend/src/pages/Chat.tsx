@@ -389,11 +389,7 @@ export default function Chat() {
         formData.append('file', fileToUpload)
       }
 
-      const response = await api.post('/chat/message', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
+      const response = await api.post('/chat/message', formData)
 
       const { response: assistantResponse, agent_used, tasks_created, goals_created, suggestions_created } = response.data
 
@@ -418,8 +414,18 @@ export default function Chat() {
     } catch (error: any) {
       console.error('Failed to send message:', error)
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id))
-      const detail = error.response?.data?.detail || 'Failed to upload or parse file. Please try again.'
-      setFileError(detail)
+      const rawDetail = error.response?.data?.detail
+      let detailMessage = 'Failed to process message. Please try again.'
+      if (typeof rawDetail === 'string') {
+        detailMessage = rawDetail
+      } else if (Array.isArray(rawDetail)) {
+        detailMessage = rawDetail.map((item: any) => (typeof item === 'string' ? item : item.msg || JSON.stringify(item))).join('; ')
+      } else if (rawDetail && typeof rawDetail === 'object') {
+        detailMessage = rawDetail.msg || JSON.stringify(rawDetail)
+      } else if (error.message) {
+        detailMessage = error.message
+      }
+      setFileError(detailMessage)
     } finally {
       setIsLoading(false)
     }
