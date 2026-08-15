@@ -717,34 +717,34 @@ export default function Chat() {
                 <span>Loading messages...</span>
               </div>
             ) : messages.length === 0 ? (
-              <div className='text-center py-16 bg-white rounded-2xl p-8 border border-slate-200/80 shadow-sm max-w-lg mx-auto'>
-                <div className='w-12 h-12 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mx-auto mb-4'>
+              <div className='text-center py-10 px-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-lg max-w-lg mx-auto my-auto transition-colors duration-200'>
+                <div className='w-12 h-12 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-800/80 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mx-auto mb-3 shadow-inner'>
                   <Sparkles className='w-6 h-6' />
                 </div>
-                <h2 className='text-xl font-serif font-bold text-slate-900 mb-2'>
-                  Start a Conversation with AI Agents
+                <h2 className='text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-white mb-2'>
+                  How can Redora AI help you today?
                 </h2>
-                <p className='text-slate-500 text-sm leading-relaxed mb-6'>
-                  Ask for a study roadmap, interview prep steps, coding plan, or expense log. Your agents will automatically record real tasks, goals, and budget insights!
+                <p className='text-slate-500 dark:text-slate-400 text-xs sm:text-sm leading-relaxed mb-6'>
+                  Ask a question, upload a document, or select a quick starter below:
                 </p>
                 <div className='flex flex-wrap justify-center gap-2'>
                   <button
-                    onClick={() => setInput('Get Placed in Product Company')}
-                    className='text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-2 rounded-xl text-slate-700 transition-colors border border-slate-200/60'
+                    onClick={() => setInput('Create a 30-day study roadmap for placement prep')}
+                    className='text-xs bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 dark:hover:text-indigo-300 px-3.5 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 transition-all border border-slate-200/80 dark:border-slate-700 font-medium'
                   >
-                    🚀 Multi-Agent Goal: Product Company Placement
+                    🚀 Placement Prep Roadmap
                   </button>
                   <button
                     onClick={() => setInput('Log an expense of $45 for grocery shopping today')}
-                    className='text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 px-3 py-2 rounded-xl text-slate-700 transition-colors border border-slate-200/60'
+                    className='text-xs bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600 dark:hover:text-emerald-300 px-3.5 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 transition-all border border-slate-200/80 dark:border-slate-700 font-medium'
                   >
-                    💰 Log $45 Expense (Finance Agent)
+                    💰 Log $45 Expense
                   </button>
                   <button
-                    onClick={() => setInput('How is my Data Structures & Algorithms practice going today?')}
-                    className='text-xs bg-slate-100 hover:bg-purple-50 hover:text-purple-600 px-3 py-2 rounded-xl text-slate-700 transition-colors border border-slate-200/60'
+                    onClick={() => setInput('How is my DSA practice going today?')}
+                    className='text-xs bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/50 hover:text-purple-600 dark:hover:text-purple-300 px-3.5 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 transition-all border border-slate-200/80 dark:border-slate-700 font-medium'
                   >
-                    🔄 Progress Check-in (DSA Prep)
+                    🔄 DSA Progress Check
                   </button>
                 </div>
               </div>
@@ -901,7 +901,7 @@ export default function Chat() {
         </div>
 
         {/* Input Footer */}
-        <footer className='bg-white border-t border-slate-200/80 px-6 py-4 sticky bottom-0 z-10 space-y-2.5'>
+        <footer className='bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3.5 sticky bottom-0 z-10 space-y-2.5 transition-colors duration-200'>
           {/* Hidden File Picker Input */}
           <input
             type='file'
@@ -913,12 +913,12 @@ export default function Chat() {
 
           {/* Selected File Chip */}
           {selectedFile && (
-            <div className='max-w-4xl mx-auto flex items-center justify-between bg-indigo-50 border border-indigo-200 px-3.5 py-2 rounded-xl text-xs text-indigo-900 shadow-2xs'>
+            <div className='max-w-4xl mx-auto flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-3.5 py-2 rounded-xl text-xs text-indigo-900 dark:text-indigo-200 shadow-2xs'>
               <div className='flex items-center gap-2 truncate'>
-                <FileText className='w-4 h-4 text-indigo-600 shrink-0' />
+                <FileText className='w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0' />
                 <span className='font-semibold truncate max-w-sm'>{selectedFile.name}</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                  uploadStatus === 'uploading' ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-emerald-100 text-emerald-700'
+                  uploadStatus === 'uploading' ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 animate-pulse' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
                 }`}>
                   {uploadStatus === 'uploading' ? 'Uploading...' : 'Ready'}
                 </span>
@@ -929,7 +929,7 @@ export default function Chat() {
                   setSelectedFile(null)
                   setUploadStatus('idle')
                 }}
-                className='text-indigo-400 hover:text-indigo-700 p-1 hover:bg-indigo-100 rounded-md transition-colors'
+                className='text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-md transition-colors'
                 title='Remove file'
               >
                 <X className='w-3.5 h-3.5' />
@@ -939,7 +939,7 @@ export default function Chat() {
 
           {/* Inline Error Message Banner */}
           {fileError && (
-            <div className='max-w-4xl mx-auto flex items-center justify-between bg-rose-50 border border-rose-200 px-3.5 py-2 rounded-xl text-xs text-rose-700 font-medium shadow-2xs'>
+            <div className='max-w-4xl mx-auto flex items-center justify-between bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 px-3.5 py-2 rounded-xl text-xs text-rose-700 dark:text-rose-300 font-medium shadow-2xs'>
               <div className='flex items-center gap-2'>
                 <AlertCircle className='w-4 h-4 text-rose-500 shrink-0' />
                 <span>{fileError}</span>
@@ -947,7 +947,7 @@ export default function Chat() {
               <button
                 type='button'
                 onClick={() => setFileError(null)}
-                className='text-rose-400 hover:text-rose-700 p-1 hover:bg-rose-100 rounded-md transition-colors'
+                className='text-rose-400 hover:text-rose-700 dark:hover:text-rose-200 p-1 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-md transition-colors'
               >
                 <X className='w-3.5 h-3.5' />
               </button>
@@ -956,27 +956,27 @@ export default function Chat() {
 
           {/* Input Controls Bar */}
           <div className='max-w-4xl mx-auto'>
-            <form onSubmit={handleSendMessage} className='flex gap-2.5 items-center'>
+            <form onSubmit={handleSendMessage} className='flex gap-2 sm:gap-2.5 items-center'>
               {/* Plus Button with Dropdown Menu */}
               <div className='relative shrink-0'>
                 <button
                   type='button'
                   onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
-                  className='p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl transition-colors flex items-center justify-center'
+                  className='p-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl transition-colors flex items-center justify-center min-h-[44px] min-w-[44px]'
                   title='Add files or photos'
                 >
                   <Plus className='w-4 h-4' />
                 </button>
 
                 {isPlusMenuOpen && (
-                  <div className='absolute left-0 bottom-14 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-30 py-1 text-xs'>
+                  <div className='absolute left-0 bottom-14 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 py-1 text-xs'>
                     <button
                       type='button'
                       onClick={() => {
                         setIsPlusMenuOpen(false)
                         fileInputRef.current?.click()
                       }}
-                      className='w-full px-3.5 py-2 text-left text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2.5 font-medium transition-colors'
+                      className='w-full px-3.5 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-2.5 font-medium transition-colors'
                     >
                       <Paperclip className='w-4 h-4 text-indigo-500' />
                       <span>Add files or photos</span>
@@ -992,8 +992,8 @@ export default function Chat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={isListening ? 'Listening to voice...' : 'Ask a question or upload a document/photo...'}
-                  className={`w-full pl-4 pr-10 py-3 bg-slate-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-900 placeholder-slate-400 transition-colors ${
-                    isListening ? 'border-amber-400 ring-2 ring-amber-400/50 bg-amber-50/30' : 'border-slate-300'
+                  className={`w-full pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors min-h-[44px] ${
+                    isListening ? 'border-amber-400 ring-2 ring-amber-400/50 bg-amber-50/30 dark:bg-amber-950/30' : 'border-slate-300 dark:border-slate-700'
                   }`}
                   disabled={isLoading}
                 />
@@ -1003,7 +1003,7 @@ export default function Chat() {
                   className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
                     isListening
                       ? 'bg-rose-500 text-white animate-pulse'
-                      : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700'
                   }`}
                   title={isListening ? 'Stop Listening' : 'Voice Input (Click & Speak)'}
                 >
@@ -1015,9 +1015,9 @@ export default function Chat() {
               <button
                 type='submit'
                 disabled={isLoading || (!input.trim() && !selectedFile)}
-                className='bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 shrink-0'
+                className='bg-indigo-600 hover:bg-indigo-500 text-white px-4 sm:px-6 py-3 rounded-xl transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 shrink-0 min-h-[44px]'
               >
-                <span>Send</span>
+                <span className='hidden sm:inline'>Send</span>
                 <Send className='w-4 h-4' />
               </button>
             </form>

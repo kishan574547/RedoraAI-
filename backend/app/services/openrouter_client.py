@@ -12,7 +12,6 @@ class OpenRouterClient:
         self.fallback_models = [
             "deepseek/deepseek-chat",
             "qwen/qwen-2.5-72b-instruct",
-            "google/gemini-2.5-flash",
             "meta-llama/llama-3.3-70b-instruct"
         ]
 
@@ -38,7 +37,7 @@ class OpenRouterClient:
                     "model": attempt_model,
                     "messages": messages,
                     "temperature": temperature,
-                    "max_tokens": max_tokens
+                    "max_tokens": min(max_tokens, 1000)
                 }
                 
                 async with httpx.AsyncClient(timeout=15.0) as client:

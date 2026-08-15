@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
-import { CheckSquare, Flame, ChevronDown, ChevronUp, Bot } from 'lucide-react'
+import { CheckSquare, Flame, ChevronDown, ChevronUp, Bot, GripHorizontal } from 'lucide-react'
 import api from '../../lib/api'
 
 export function QuickWidget() {
@@ -9,16 +9,33 @@ export function QuickWidget() {
   const [todayTasks, setTodayTasks] = useState<any[]>([])
   const [streakCount, setStreakCount] = useState(0)
 
-  useEffect(() => {
-    if (location.pathname.startsWith('/tools')) {
-      return
+  // Dragging state
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const saved = localStorage.getItem('redora_widget_pos')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
     }
+  })
 
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number; moved: boolean }>({
+    startX: 0,
+    startY: 0,
+    initialX: 0,
+    initialY: 0,
+    moved: false,
+  })
+
+  const allowedPages = ['/', '/dashboard', '/tasks', '/goals']
+  const isAllowedPage = allowedPages.includes(location.pathname)
+
+  useEffect(() => {
+    if (!isAllowedPage) return
     fetchTasksAndHabits()
 
-    const handleUpdate = () => {
-      fetchTasksAndHabits()
-    }
+    const handleUpdate = () => fetchTasksAndHabits()
 
     window.addEventListener('focus', handleUpdate)
     window.addEventListener('lifeos_data_updated', handleUpdate)
@@ -27,11 +44,7 @@ export function QuickWidget() {
       window.removeEventListener('focus', handleUpdate)
       window.removeEventListener('lifeos_data_updated', handleUpdate)
     }
-  }, [location.pathname])
-
-  if (location.pathname.startsWith('/tools')) {
-    return null
-  }
+  }, [location.pathname, isAllowedPage])
 
   const fetchTasksAndHabits = async () => {
     try {
@@ -39,7 +52,6 @@ export function QuickWidget() {
       const tasks = Array.isArray(res.data) ? res.data : []
       const today = new Date().toDateString()
       
-      // Only include pending/active tasks
       const activeTasks = tasks.filter((t: any) => 
         t.status !== 'completed' && 
         t.status !== 'cancelled' && 
@@ -60,23 +72,118 @@ export function QuickWidget() {
     }
   }
 
+  // Handle Dragging
+  const handleStart = (clientX: number, clientY: number) => {
+    const currentX = position?.x ?? (window.innerWidth - 300)
+    const currentY = position?.y ?? (window.innerHeight - 80)
+
+    dragRef.current = {
+      startX: clientX,
+      startY: clientY,
+      initialX: currentX,
+      initialY: currentY,
+      moved: false,
+    }
+    setIsDragging(true)
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    handleStart(e.clientX, e.clientY)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      handleStart(e.touches[0].clientX, e.touches[0].clientY)
+    }
+  }
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMove = (clientX: number, clientY: number) => {
+      const deltaX = clientX - dragRef.current.startX
+      const deltaY = clientY - dragRef.current.startY
+
+      if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+        dragRef.current.moved = true
+      }
+
+      // Keep widget within screen bounds
+      const widgetWidth = Math.min(window.innerWidth - 32, 288)
+      const newX = Math.max(10, Math.min(window.innerWidth - widgetWidth - 10, dragRef.current.initialX + deltaX))
+      const newY = Math.max(10, Math.min(window.innerHeight - 60, dragRef.current.initialY + deltaY))
+
+      setPosition({ x: newX, y: newY })
+    }
+
+    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY)
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        handleMove(e.touches[0].clientX, e.touches[0].clientY)
+      }
+    }
+
+    const handleEnd = () => {
+      setIsDragging(false)
+      if (position) {
+        try {
+          localStorage.setItem('redora_widget_pos', JSON.stringify(position))
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', handleEnd)
+    window.addEventListener('touchmove', onTouchMove)
+    window.addEventListener('touchend', handleEnd)
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', handleEnd)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', handleEnd)
+    }
+  }, [isDragging, position])
+
+  if (!isAllowedPage) {
+    return null
+  }
+
+  const stylePosition = position
+    ? { left: `${position.x}px`, top: `${position.y}px`, right: 'auto', bottom: 'auto' }
+    : {}
+
   return (
-    <div className='fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700/80 w-[calc(100vw-2rem)] sm:w-72 overflow-hidden transition-all duration-300 font-sans'>
-      {/* Header */}
+    <div
+      style={stylePosition}
+      className={`fixed z-50 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700/80 w-[calc(100vw-2rem)] sm:w-72 overflow-hidden font-sans touch-none select-none ${
+        !position ? 'bottom-4 right-4 sm:bottom-6 sm:right-6' : ''
+      } ${isDragging ? 'shadow-indigo-500/20 scale-[1.02] cursor-grabbing' : 'transition-all duration-200'}`}
+    >
+      {/* Header with Grip Drag Area */}
       <div 
-        onClick={() => setIsOpen(!isOpen)}
-        className='px-4 py-3 bg-slate-50 dark:bg-slate-950 flex items-center justify-between cursor-pointer select-none border-b border-slate-200 dark:border-slate-800'
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        onClick={() => {
+          if (!dragRef.current.moved) {
+            setIsOpen(!isOpen)
+          }
+        }}
+        className='px-3 py-2.5 bg-slate-50 dark:bg-slate-950 flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-slate-200 dark:border-slate-800'
       >
-        <div className='flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider'>
-          <Bot className='w-4 h-4 text-indigo-600 dark:text-indigo-400' />
-          <span>Redora AI Today Widget</span>
+        <div className='flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider min-w-0'>
+          <GripHorizontal className='w-4 h-4 text-slate-400 shrink-0' />
+          <Bot className='w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0' />
+          <span className='truncate'>Redora AI Today</span>
         </div>
-        <div className='flex items-center gap-2'>
-          <span className='inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 rounded-full'>
+        <div className='flex items-center gap-2 shrink-0'>
+          <span className='inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 rounded-full'>
             <Flame className='w-3 h-3 text-amber-500 fill-amber-500' />
             <span>{streakCount}d</span>
           </span>
-          {isOpen ? <ChevronDown className='w-4 h-4 text-slate-400' /> : <ChevronUp className='w-4 h-4' />}
+          {isOpen ? <ChevronDown className='w-4 h-4 text-slate-400' /> : <ChevronUp className='w-4 h-4 text-slate-400' />}
         </div>
       </div>
 
@@ -105,3 +212,4 @@ export function QuickWidget() {
     </div>
   )
 }
+
