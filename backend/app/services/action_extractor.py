@@ -98,6 +98,10 @@ Return ONLY valid JSON matching this format (no markdown formatting or extra tex
                 response = await self.openrouter_client.chat_completion(messages)
                 raw_content = response["choices"][0]["message"]["content"].strip()
                 cleaned_json = raw_content.replace("```json", "").replace("```", "").strip()
+                start = cleaned_json.find("{")
+                end = cleaned_json.rfind("}")
+                if start != -1 and end != -1:
+                    cleaned_json = cleaned_json[start:end+1]
                 extracted_data = json.loads(cleaned_json)
             except Exception as e:
                 logger.warning(f"LLM action extraction failed or skipped: {str(e)}. Falling back to regex parser.")
@@ -304,13 +308,13 @@ Return ONLY valid JSON matching this format (no markdown formatting or extra tex
         extracted_questions = []
 
         is_roadmap = any(keyword in user_input.lower() or keyword in response.lower() 
-                         for keyword in ["roadmap", "goal", "study plan", "curriculum", "schedule", "milestone"])
+                         for keyword in ["roadmap", "goal", "study plan", "curriculum", "schedule", "milestone", "dsa", "practice", "check-in", "prep", "budget", "savings"])
 
         if is_roadmap:
-            goal_title = f"{agent_used.capitalize()} Roadmap: {user_input[:50]}"
+            goal_title = f"{agent_used.capitalize()} Plan: {user_input[:40]}"
             extracted_goals.append({
                 "title": goal_title,
-                "description": f"Generated roadmap for {user_input}",
+                "description": f"Targeted roadmap for {user_input}",
                 "target_days": 30
             })
 
@@ -321,7 +325,7 @@ Return ONLY valid JSON matching this format (no markdown formatting or extra tex
                 item_text = bullet_match.group(1).strip()
                 item_text = re.sub(r'\*\*(.*?)\*\*', r'\1', item_text).strip()
 
-                if len(item_text) > 4 and not item_text.lower().startswith(("here", "note", "remember", "summary")):
+                if len(item_text) > 4 and not item_text.lower().startswith(("here", "note", "remember", "summary", "hello", "let's")):
                     extracted_tasks.append({
                         "title": item_text[:150],
                         "due_days": (idx % 7) + 1

@@ -787,60 +787,70 @@ export default function Chat() {
 
                     <div className='whitespace-pre-wrap leading-relaxed text-sm'>{formatMessageContent(message.content)}</div>
 
-                    {/* Inline Action Confirmation Chips */}
-                    {message.role === 'assistant' &&
-                      ((message.tasks_created && message.tasks_created.length > 0) ||
-                        (message.goals_created && message.goals_created.length > 0)) && (
-                        <div className='mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs'>
-                          {message.tasks_created && message.tasks_created.length > 0 && (
-                            <>
-                              <button
-                                onClick={() => navigate('/tasks')}
-                                className='inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-xs font-semibold transition-all shadow-sm'
-                                title='Click to view added tasks'
-                              >
-                                <CheckCircle2 className='w-3.5 h-3.5 text-emerald-600' />
-                                <span>✓ Added {message.tasks_created.length} Task(s)</span>
-                              </button>
-                              <button
-                                onClick={() => setChatCalendarTask(message.tasks_created![0])}
-                                className='inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-full text-xs font-semibold transition-all shadow-sm'
-                                title='Ask user to confirm and schedule task in Google Calendar'
-                              >
-                                <span>📆 Schedule in Google Calendar</span>
-                              </button>
-                            </>
-                          )}
-                          {message.goals_created && message.goals_created.length > 0 && (
-                            <button
-                              onClick={() => navigate('/goals')}
-                              className='inline-flex items-center gap-1.5 px-3 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-full text-xs font-semibold transition-all shadow-sm'
-                              title='Click to view added goals'
-                            >
-                              <Target className='w-3.5 h-3.5 text-teal-600' />
-                              <span>✓ Added to your Goals</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                    {/* Render Proactive Suggestions if present */}
-                    {message.role === 'assistant' && message.suggestions_created && message.suggestions_created.length > 0 && (
-                      <div className='mt-3 pt-3 border-t border-slate-100'>
-                        <SuggestionsList suggestions={message.suggestions_created} compact={true} />
-                      </div>
-                    )}
-
-                    {/* Return to Dashboard link button */}
+                    {/* Inline Action Confirmation & Live Workspace Auto-Sync Chips */}
                     {message.role === 'assistant' && (
-                      <div className='mt-2 pt-2 border-t border-slate-100 flex justify-end'>
-                        <button
-                          onClick={() => navigate('/')}
-                          className='inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-xl transition-all'
-                        >
-                          <span>View Updated Activity Feed on Dashboard</span>
-                          <ArrowRight className='w-3.5 h-3.5' />
-                        </button>
+                      <div className='mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2'>
+                        {((message.tasks_created && message.tasks_created.length > 0) ||
+                          (message.goals_created && message.goals_created.length > 0)) ? (
+                          <div className='space-y-1.5'>
+                            <div className='text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5'>
+                              <Sparkles className='w-3.5 h-3.5 text-emerald-500 animate-pulse' />
+                              <span>Live Workspace Auto-Sync</span>
+                            </div>
+                            <div className='flex flex-wrap items-center gap-2 text-xs'>
+                              {message.tasks_created && message.tasks_created.length > 0 && (
+                                <>
+                                  <button
+                                    onClick={() => navigate('/tasks')}
+                                    className='inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs font-semibold transition-all shadow-2xs'
+                                    title='Click to view added tasks'
+                                  >
+                                    <CheckCircle2 className='w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400' />
+                                    <span>✓ Added {message.tasks_created.length} Task(s)</span>
+                                  </button>
+                                  <button
+                                    onClick={() => setChatCalendarTask(message.tasks_created![0])}
+                                    className='inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700 rounded-xl text-xs font-semibold transition-all shadow-2xs'
+                                    title='Schedule task in Google Calendar'
+                                  >
+                                    <span>📆 Schedule in Google Calendar</span>
+                                  </button>
+                                </>
+                              )}
+                              {message.goals_created && message.goals_created.length > 0 && (
+                                <button
+                                  onClick={() => navigate('/goals')}
+                                  className='inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-800 dark:text-teal-200 border border-teal-300 dark:border-teal-700 rounded-xl text-xs font-semibold transition-all shadow-2xs'
+                                  title='Click to view added goals'
+                                >
+                                  <Target className='w-3.5 h-3.5 text-teal-600 dark:text-teal-400' />
+                                  <span>✓ Added Goal to Dashboard</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {/* Render Proactive Suggestions if present */}
+                        {message.suggestions_created && message.suggestions_created.length > 0 && (
+                          <div className='pt-1'>
+                            <SuggestionsList suggestions={message.suggestions_created} compact={true} />
+                          </div>
+                        )}
+
+                        {/* View Updated Live Activity Feed on Dashboard */}
+                        <div className='flex justify-end pt-1'>
+                          <button
+                            onClick={() => {
+                              window.dispatchEvent(new Event('lifeos_data_updated'))
+                              navigate('/')
+                            }}
+                            className='inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 rounded-xl transition-all shadow-2xs'
+                          >
+                            <span>View Live Activity Feed on Dashboard</span>
+                            <ArrowRight className='w-3.5 h-3.5' />
+                          </button>
+                        </div>
                       </div>
                     )}
 
