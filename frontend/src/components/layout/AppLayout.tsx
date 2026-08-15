@@ -59,7 +59,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Sidebar for Desktop */}
       <aside className="hidden lg:flex lg:flex-col lg:w-64 fixed left-0 top-0 bottom-0 h-screen bg-white dark:bg-slate-900/80 backdrop-blur-md border-r border-slate-200 dark:border-slate-800 p-4 z-30 overflow-hidden shrink-0 transition-colors duration-200 justify-between">
         <div className="flex items-center space-x-3 mb-4">
-          <img src="/logo.jpg" alt="Redora AI Logo" className="h-8 w-8 rounded-xl object-cover shadow-sm border border-indigo-500/20" />
+          <img src="/logo.png" alt="Redora AI Logo" className="h-8 w-8 rounded-xl object-contain shadow-sm bg-slate-900 border border-indigo-500/20" />
           <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-purple-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent font-serif">
             Redora AI
           </span>
@@ -153,21 +153,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Mobile & Tablet Navigation Header */}
       <div className="flex flex-col flex-1 min-w-0 w-full lg:pl-64 overflow-x-hidden">
-        <header className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 transition-colors duration-200">
-          <div className="flex items-center space-x-3">
-            <img src="/logo.jpg" alt="Redora AI Logo" className="h-8 w-8 rounded-lg object-cover shadow-sm border border-indigo-500/20" />
-            <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-purple-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent font-serif">
+        <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 transition-colors duration-200">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <img src="/logo.png" alt="Redora AI Logo" className="h-8 w-8 rounded-lg object-contain bg-slate-900 shadow-sm border border-indigo-500/20 shrink-0" />
+            <span className="text-base sm:text-lg font-bold tracking-tight bg-gradient-to-r from-purple-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent font-serif truncate">
               Redora AI
             </span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             <ThemeToggle />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-3 text-slate-300 hover:text-white bg-slate-800/80 rounded-xl border border-slate-700 focus:outline-none min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2.5 text-slate-300 hover:text-white bg-slate-800/80 rounded-xl border border-slate-700 focus:outline-none min-h-[40px] min-w-[40px] flex items-center justify-center"
               title="Toggle Navigation Menu"
             >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </header>
@@ -177,7 +177,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="lg:hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col p-6 overflow-y-auto">
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center space-x-3">
-                <img src="/logo.jpg" alt="Redora AI Logo" className="h-8 w-8 rounded-lg object-cover shadow-sm" />
+                <img src="/logo.png" alt="Redora AI Logo" className="h-8 w-8 rounded-lg object-contain bg-slate-900 shadow-sm" />
                 <span className="text-xl font-bold font-serif text-emerald-400">Navigation</span>
               </div>
               <button 

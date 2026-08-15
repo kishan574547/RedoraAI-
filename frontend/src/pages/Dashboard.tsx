@@ -264,45 +264,50 @@ function Dashboard() {
   return (
     <div className='space-y-6 w-full max-w-full transition-colors duration-300'>
       {/* 1. COMPACT TOP APP BAR / BRAND HEADER */}
-      <header className='flex items-center justify-between pb-2 border-b border-slate-800/80 dark:border-slate-800'>
-        <div className='flex items-center space-x-3'>
-          <img src="/logo.jpg" alt="Redora AI Logo" className='w-9 h-9 rounded-xl object-cover shadow-md border border-indigo-500/20' />
+      <header className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80 dark:border-slate-800'>
+        <div className='flex items-center space-x-3 shrink-0'>
+          <img src="/logo.png" alt="Redora AI Logo" className='w-9 h-9 rounded-xl object-contain bg-slate-900 shadow-md border border-indigo-500/20' />
           <div>
-            <h1 className='text-xl font-serif font-bold text-slate-900 dark:text-slate-100 leading-none'>Redora AI</h1>
+            <h1 className='text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-slate-100 leading-none'>Redora AI</h1>
             <p className='text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium'>Personal AI Executive Assistant</p>
           </div>
         </div>
 
-          <div className='flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end'>
+        <div className='flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0'>
+          <div className='flex items-center gap-2'>
             <button
               onClick={() => navigate('/tasks')}
-              className='p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-all border border-slate-200/80 dark:border-slate-700 shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center'
+              className='p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-all border border-slate-200/80 dark:border-slate-700 shadow-xs min-h-[40px] min-w-[40px] flex items-center justify-center'
               title='Tasks Shortcut'
             >
               <CheckSquare className='w-4 h-4 text-indigo-600 dark:text-indigo-400' />
             </button>
             <button
               onClick={() => navigate('/goals')}
-              className='p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-all border border-slate-200/80 dark:border-slate-700 shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center'
+              className='p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-all border border-slate-200/80 dark:border-slate-700 shadow-xs min-h-[40px] min-w-[40px] flex items-center justify-center'
               title='Goals Shortcut'
             >
               <Target className='w-4 h-4 text-purple-600 dark:text-purple-400' />
             </button>
+          </div>
+          
+          <div className='flex items-center gap-2'>
             <button
               onClick={() => navigate('/chat')}
-              className='inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-all shadow-sm shadow-indigo-600/20 min-h-[44px]'
+              className='inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs sm:text-sm font-medium transition-all shadow-sm shadow-indigo-600/20 min-h-[40px]'
             >
               <Bot className='w-4 h-4' />
               <span>Ask AI Agents</span>
             </button>
             <button
               onClick={handleLogout}
-              className='p-3 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center'
+              className='p-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center'
               title='Sign Out'
             >
-              <LogOut className='w-5 h-5' />
+              <LogOut className='w-4.5 h-4.5' />
             </button>
           </div>
+        </div>
       </header>
 
       {/* Main Container */}

@@ -454,7 +454,7 @@ export default function Login() {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans text-slate-100">
       <div className="w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
         <div className="flex flex-col items-center mb-8 text-center">
-          <img src="/logo.jpg" alt="Redora AI Logo" className="w-16 h-16 rounded-2xl object-cover shadow-xl mb-3 border border-indigo-500/30 ring-4 ring-indigo-500/10" />
+          <img src="/logo.png" alt="Redora AI Logo" className="w-16 h-16 rounded-2xl object-contain bg-slate-900 shadow-xl mb-3 border border-indigo-500/30 ring-4 ring-indigo-500/10" />
           <h1 className="text-3xl font-serif font-bold tracking-tight text-white">Redora AI</h1>
           <p className="text-sm text-indigo-400 font-medium mt-1 transition-all">{getHeaderSubtitle()}</p>
         </div>

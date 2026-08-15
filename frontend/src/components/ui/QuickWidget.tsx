@@ -61,7 +61,7 @@ export function QuickWidget() {
   }
 
   return (
-    <div className='fixed bottom-6 right-6 z-50 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700/80 w-72 overflow-hidden transition-all duration-300 font-sans'>
+    <div className='fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700/80 w-[calc(100vw-2rem)] sm:w-72 overflow-hidden transition-all duration-300 font-sans'>
       {/* Header */}
       <div 
         onClick={() => setIsOpen(!isOpen)}

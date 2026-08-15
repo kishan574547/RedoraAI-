@@ -12,8 +12,8 @@ class OpenRouterClient:
         self.fallback_models = [
             "deepseek/deepseek-chat",
             "qwen/qwen-2.5-72b-instruct",
-            "mistralai/mistral-7b-instruct",
-            "google/gemma-2-9b-it"
+            "google/gemini-2.5-flash",
+            "meta-llama/llama-3.3-70b-instruct"
         ]
 
     async def chat_completion(
