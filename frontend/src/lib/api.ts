@@ -19,8 +19,13 @@ export const api = axios.create({
   },
 })
 
-// Request interceptor to attach token and ensure /api/v1 prefix is present
+// Request interceptor to attach token, format URLs, and handle FormData boundaries
 api.interceptors.request.use((config) => {
+  if (config.data instanceof FormData && config.headers) {
+    delete config.headers['Content-Type']
+    delete config.headers['content-type']
+  }
+
   if (config.url && !config.url.startsWith('http://') && !config.url.startsWith('https://')) {
     let path = config.url.startsWith('/') ? config.url : `/${config.url}`
     if (!path.startsWith('/api/v1')) {
