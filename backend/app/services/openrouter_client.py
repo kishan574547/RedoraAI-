@@ -67,11 +67,24 @@ class OpenRouterClient:
                 if parts:
                     contents.append({"role": gemini_role, "parts": parts})
 
-            if not contents and system_text:
-                contents.append({"role": "user", "parts": [{"text": system_text}]})
+            # Merge consecutive same-role items for Gemini API validation
+            merged_contents = []
+            for item in contents:
+                if merged_contents and merged_contents[-1]["role"] == item["role"]:
+                    merged_contents[-1]["parts"].extend(item["parts"])
+                else:
+                    merged_contents.append(item)
+
+            if not merged_contents:
+                merged_contents.append({"role": "user", "parts": [{"text": system_text or "Hello"}]})
+
+            if system_text and merged_contents and merged_contents[0]["role"] == "user":
+                if merged_contents[0]["parts"] and "text" in merged_contents[0]["parts"][0]:
+                    orig_t = merged_contents[0]["parts"][0]["text"]
+                    merged_contents[0]["parts"][0]["text"] = f"[System Context:\n{system_text.strip()}]\n\n{orig_t}"
 
             payload = {
-                "contents": contents,
+                "contents": merged_contents,
                 "generationConfig": {
                     "temperature": temperature,
                     "maxOutputTokens": min(max_tokens, 2048)
@@ -123,9 +136,18 @@ class OpenRouterClient:
         temperature: float = 0.7,
         max_tokens: int = 1000
     ) -> Dict:
-        # Check Google Gemini API key first
-        g_key = self.gemini_key or settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-        if g_key:
+        # Check Google Gemini API keys first across all configuration sources
+        gemini_keys = [
+            settings.GEMINI_API_KEY,
+            os.environ.get("GEMINI_API_KEY"),
+            self.gemini_key,
+            settings.OPENAI_API_KEY if (settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.startswith("AQ.")) else None,
+            settings.OPENROUTER_API_KEY if (settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.startswith("AQ.")) else None
+        ]
+        gemini_keys = [k.strip() for k in gemini_keys if k and k.strip()]
+        gemini_keys = list(dict.fromkeys(gemini_keys))
+
+        for g_key in gemini_keys:
             gemini_res = await self._call_gemini_api(
                 gemini_key=g_key,
                 messages=messages,

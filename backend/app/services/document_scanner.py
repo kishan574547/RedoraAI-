@@ -53,11 +53,12 @@ class DocumentScannerService:
                 }
             ]
 
-            # Try free vision capable models on OpenRouter
+            # Try Google Gemini vision models
             vision_models = [
-                "google/gemini-2.5-flash",
-                "qwen/qwen-2.5-vl-72b-instruct",
-                "meta-llama/llama-3.2-11b-vision-instruct"
+                "gemini-flash-lite-latest",
+                "gemini-flash-latest",
+                "gemini-2.0-flash",
+                "google/gemini-2.5-flash"
             ]
 
             for model_name in vision_models:
