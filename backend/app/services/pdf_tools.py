@@ -5,7 +5,6 @@ import zipfile
 from typing import List, Dict, Any, Optional
 import pypdf
 import pikepdf
-from pdf2docx import Converter
 
 
 def validate_pdf_bytes(file_bytes: bytes, max_size_mb: int = 20) -> None:
@@ -149,7 +148,9 @@ def compress_pdf(pdf_bytes: bytes) -> bytes:
 
 def pdf_to_word(pdf_bytes: bytes) -> bytes:
     """Converts PDF bytes into Word (.docx) byte stream using pdf2docx."""
+    from pdf2docx import Converter
     validate_pdf_bytes(pdf_bytes)
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as in_tmp:
         in_tmp.write(pdf_bytes)
         in_path = in_tmp.name
