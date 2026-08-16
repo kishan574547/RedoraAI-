@@ -134,7 +134,7 @@ export default function SpeakingPractice() {
   const latestTranscriptRef = useRef<string>('')
   const isListeningRef = useRef<boolean>(false)
   const isProcessingRef = useRef<boolean>(false)
-  const cadenceIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const cadenceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isComponentMounted = useRef<boolean>(true)
   const isHandsFreeRef = useRef<boolean>(false)
 
