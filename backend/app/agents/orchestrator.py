@@ -1,24 +1,25 @@
 from typing import Dict, Any, Optional, List
-from app.services.openrouter_client import OpenRouterClient
+from app.agents.base_agent import call_llm
 from app.agents.memory_agent import MemoryAgent
 from app.agents.study_agent import StudyAgent
 from app.agents.career_agent import CareerAgent
 from app.agents.coding_agent import CodingAgent
 from app.agents.productivity_agent import ProductivityAgent
 from app.agents.finance_agent import finance_agent
+from app.agents.speaking_agent import speaking_agent
 from app.core.logging import logger
 
 
 class Orchestrator:
     def __init__(self):
-        self.openrouter_client = OpenRouterClient()
         self.agents = {
             "memory": MemoryAgent(),
             "study": StudyAgent(),
             "career": CareerAgent(),
             "coding": CodingAgent(),
             "productivity": ProductivityAgent(),
-            "finance": finance_agent
+            "finance": finance_agent,
+            "speaking": speaking_agent
         }
 
     def detect_multi_agent_scenario(self, user_input: str) -> Optional[List[str]]:
@@ -33,6 +34,8 @@ class Orchestrator:
             return ["coding", "study", "productivity"]
         if any(w in lower_input for w in ["get fit", "habit", "routine", "goal for next month", "yearly goal"]):
             return ["career", "productivity"]
+        if any(w in lower_input for w in ["speak", "speech", "pronunciation", "talk", "verbal"]):
+            return ["speaking", "productivity"]
         return None
 
     async def classify_intent(self, user_input: str) -> str:
@@ -47,17 +50,17 @@ class Orchestrator:
 - coding: programming, software development, debugging
 - productivity: time management, task management, productivity tips
 - finance: expenses, budget, savings, financial management
+- speaking: speech coaching, pronunciation, spoken English, oral communication
 
 Respond with ONLY the category name (lowercase, no punctuation)."""
 
         messages = [
-            {"role": "system", "content": classification_prompt},
             {"role": "user", "content": user_input}
         ]
         
         try:
-            response = await self.openrouter_client.chat_completion(messages)
-            intent = response["choices"][0]["message"]["content"].strip().lower()
+            raw_text = await call_llm(messages, system_prompt=classification_prompt)
+            intent = raw_text.strip().lower()
             if intent not in self.agents:
                 intent = "productivity"
             return intent

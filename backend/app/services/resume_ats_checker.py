@@ -28,8 +28,8 @@ STOP_WORDS = {
 }
 
 
-def extract_resume_text(file_bytes: bytes, filename: str) -> str:
-    """Extract plain text content from PDF or DOCX file bytes using multi-stage extractors."""
+async def extract_resume_text(file_bytes: bytes, filename: str) -> str:
+    """Extract plain text content from PDF, DOCX, or Image file bytes using multi-stage extractors + Google Gemini Vision OCR."""
     fname = filename.lower()
     text = ""
 
@@ -77,6 +77,53 @@ def extract_resume_text(file_bytes: bytes, filename: str) -> str:
             except Exception as e:
                 logger.warning(f"pdf2docx fallback extraction failed: {str(e)}")
 
+        # Stage 3: Vision OCR fallback for scanned/image PDFs (e.g. Canva exports or photo PDFs)
+        if not text or len(text) < 30:
+            try:
+                import fitz  # PyMuPDF
+                import base64
+                from app.services.openrouter_client import OpenRouterClient
+
+                doc = fitz.open(stream=file_bytes, filetype="pdf")
+                vision_pages = []
+                client = OpenRouterClient()
+
+                for page_num in range(min(len(doc), 5)):
+                    page = doc.load_page(page_num)
+                    pix = page.get_pixmap(dpi=150)
+                    img_png = pix.tobytes("png")
+                    b64_img = base64.b64encode(img_png).decode("utf-8")
+
+                    messages = [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "Transcribe all text from this resume page image word for word. Extract every section heading, contact info (email, phone, location), experience, education, skills, projects, and bullet points."
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{b64_img}"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+
+                    res = await client.chat_completion(messages=messages, model="gemini-flash-lite-latest", max_tokens=1500)
+                    if isinstance(res, dict) and res.get("choices"):
+                        p_text = res["choices"][0]["message"]["content"]
+                        if p_text and len(p_text.strip()) > 15:
+                            vision_pages.append(p_text.strip())
+
+                if vision_pages:
+                    text = "\n\n".join(vision_pages).strip()
+                    logger.info(f"Successfully extracted {len(text)} characters from PDF '{filename}' via Google Gemini Vision OCR")
+            except Exception as ve:
+                logger.warning(f"Google Gemini Vision OCR failed for PDF '{filename}': {str(ve)}")
+
     elif fname.endswith(".docx") or fname.endswith(".doc"):
         try:
             doc = docx.Document(io.BytesIO(file_bytes))
@@ -90,8 +137,38 @@ def extract_resume_text(file_bytes: bytes, filename: str) -> str:
         except Exception as e:
             logger.error(f"Error reading DOCX file: {str(e)}")
             raise ValueError("Failed to extract text from Word document. File may be corrupted.")
+    elif fname.endswith((".png", ".jpg", ".jpeg")):
+        try:
+            import base64
+            from app.services.openrouter_client import OpenRouterClient
+            b64_img = base64.b64encode(file_bytes).decode("utf-8")
+            media_type = "image/png" if fname.endswith(".png") else "image/jpeg"
+            client = OpenRouterClient()
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Transcribe all text from this resume image word for word. Extract every section heading, contact info (email, phone, location), experience, education, skills, projects, and bullet points."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{media_type};base64,{b64_img}"
+                            }
+                        }
+                    ]
+                }
+            ]
+            res = await client.chat_completion(messages=messages, model="gemini-flash-lite-latest", max_tokens=2000)
+            if isinstance(res, dict) and res.get("choices"):
+                text = res["choices"][0]["message"]["content"].strip()
+        except Exception as ie:
+            logger.error(f"Error reading Image file: {str(ie)}")
+            raise ValueError(f"Failed to extract text from image resume: {str(ie)}")
     else:
-        raise ValueError("Unsupported file format. Please upload a PDF (.pdf) or Word document (.docx).")
+        raise ValueError("Unsupported file format. Please upload a PDF (.pdf), Word document (.docx), or Image (.jpg/.png).")
 
     return text.strip()
 

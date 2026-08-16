@@ -2,6 +2,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
+from app.services.gemini_client import GeminiClient, gemini_circuit_breaker
 from app.services.openrouter_client import OpenRouterClient
 from app.core.logging import logger
 
@@ -85,9 +86,92 @@ def extract_clean_response_text(raw_output: str) -> str:
     return text
 
 
+_gemini_client = GeminiClient()
+_openrouter_client = OpenRouterClient()
+
+
+# ========================================================================================
+# LLM CALLING STRATEGY & PRIORITY ORDER DOCUMENTATION
+# ========================================================================================
+# Priority Order:
+# 1. Primary Provider: Google Gemini REST API (Target Models: gemini-2.0-flash -> gemini-1.5-flash)
+#    - Serves as the primary high-throughput LLM engine for all agents across the app.
+#    - Circuit Breaker Protection: Tracks consecutive Gemini failures (rate limits / 429 / quota / auth).
+#      If 3 consecutive Gemini failures occur in a short window, Gemini enters a 5-minute cooldown
+#      to avoid wasting network latency on a temporarily unavailable API.
+#
+# 2. Fallback Provider: OpenRouter Model Chain
+#    - Triggered silently and instantly whenever Gemini fails for ANY reason (429, API error, invalid key,
+#      timeout, exception, or active circuit breaker cooldown).
+#    - Model Fallback Order: DeepSeek (deepseek/deepseek-chat) -> Qwen (qwen/qwen-2.5-72b-instruct) ->
+#                            Llama (meta-llama/llama-3.3-70b-instruct) -> Gemma (google/gemma-2-27b-it).
+#
+# 3. Local Intelligent Fallback:
+#    - If all online providers (Gemini & OpenRouter) are unreachable, returns a safe structured response
+#      so the user receives an intelligent message with zero application crashes.
+#
+# 4. Monitoring & Logging:
+#    - Formally logs the exact provider and model that served each response for full debugging visibility
+#      (e.g., "LLM response served by Gemini [model: gemini-2.0-flash]" or "LLM response served by OpenRouter fallback [model: deepseek/deepseek-chat]").
+# ========================================================================================
+
+async def call_llm(
+    messages: List[Dict[str, Any]],
+    system_prompt: Optional[str] = None,
+    context: Optional[Dict[str, Any]] = None,
+    model: Optional[str] = None
+) -> str:
+    """
+    Unified entry point for all LLM calls across every agent in the application.
+    Implements Gemini Primary -> OpenRouter Fallback strategy with circuit breaker and logging.
+    """
+    combined_prompt = (system_prompt or "").strip()
+    if COMMON_SUGGESTION_PROMPT not in combined_prompt:
+        combined_prompt += "\n\n" + COMMON_SUGGESTION_PROMPT
+
+    if context:
+        shared_ctx_str = context.get("shared_goal_state", "")
+        if shared_ctx_str:
+            combined_prompt += f"\n\n--- CROSS-AGENT SHARED CONTEXT & DEADLINES ---\n{shared_ctx_str}\n\nINSTRUCTION: Cross-reference and align with all existing deadlines, active goals, and tasks above."
+
+    messages_to_send = [{"role": "system", "content": combined_prompt}] + [m for m in messages if m.get("role") != "system"]
+
+    # Step 1: Attempt Gemini Primary Call (if circuit breaker is healthy)
+    if gemini_circuit_breaker.is_available():
+        try:
+            res = await _gemini_client.chat_completion(
+                messages=messages_to_send,
+                system_prompt=combined_prompt,
+                model=model
+            )
+            provider = res.get("provider", "Gemini")
+            served_model = res.get("model", "gemini-2.0-flash")
+            logger.info(f"LLM response served by {provider} [model: {served_model}]")
+            return res.get("content", "")
+        except Exception as e:
+            logger.warning(
+                f"Gemini Primary LLM call failed ({str(e)}). "
+                "Triggering silent fallback to OpenRouter model chain..."
+            )
+
+    # Step 2: Fallback to OpenRouter Model Chain
+    try:
+        res = await _openrouter_client.chat_completion(
+            messages=messages_to_send,
+            model=model
+        )
+        provider = res.get("provider", "OpenRouter")
+        served_model = res.get("model", "openrouter-fallback")
+        content = res["choices"][0]["message"]["content"]
+        logger.info(f"LLM response served by {provider} fallback [model: {served_model}]")
+        return content
+    except Exception as e:
+        logger.error(f"All LLM providers (Gemini + OpenRouter) failed: {str(e)}")
+        raise Exception("Failed to generate response from all LLM providers.")
+
+
 class BaseAgent(ABC):
     def __init__(self):
-        self.openrouter_client = OpenRouterClient()
         self.agent_name = self.__class__.__name__
 
     @abstractmethod
@@ -105,21 +189,11 @@ class BaseAgent(ABC):
         """
         pass
 
-    async def call_llm(self, messages: list, system_prompt: Optional[str] = None, context: Optional[Dict[str, Any]] = None) -> str:
-        combined_prompt = (system_prompt or "") + "\n\n" + COMMON_SUGGESTION_PROMPT
-        
-        if context:
-            shared_ctx_str = context.get("shared_goal_state", "")
-            if shared_ctx_str:
-                combined_prompt += f"\n\n--- CROSS-AGENT SHARED CONTEXT & DEADLINES ---\n{shared_ctx_str}\n\nINSTRUCTION: Cross-reference and align with all existing deadlines, active goals, and tasks above."
-
-        messages_to_send = [{"role": "system", "content": combined_prompt}] + messages
-        response = await self.openrouter_client.chat_completion(messages_to_send)
-
-        if "choices" in response and len(response["choices"]) > 0:
-            return response["choices"][0]["message"]["content"]
-        else:
-            raise Exception("Invalid response from OpenRouter")
+    async def call_llm(self, messages: list, system_prompt: Optional[str] = None, context: Optional[Dict[str, Any]] = None, model: Optional[str] = None) -> str:
+        """
+        Delegate agent LLM call to unified shared call_llm entry point.
+        """
+        return await call_llm(messages=messages, system_prompt=system_prompt, context=context, model=model)
 
     def parse_structured_response(self, raw_output: str) -> Dict[str, Any]:
         """
@@ -164,5 +238,3 @@ class BaseAgent(ABC):
                 "practice_questions": [],
                 "suggestions": []
             }
-
-

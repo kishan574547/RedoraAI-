@@ -48,8 +48,8 @@ async def api_check_resume(
         if len(content) > MAX_FILE_SIZE_MB * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File size exceeds the maximum limit of 20MB.")
 
-        # 1. Extract plain text
-        resume_text = extract_resume_text(content, resume_file.filename)
+        # 1. Extract plain text (with Google Gemini Vision OCR fallback)
+        resume_text = await extract_resume_text(content, resume_file.filename)
 
         # 2. Perform rule-based checks
         rule_results = rule_based_checks(resume_text)

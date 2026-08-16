@@ -1,175 +1,49 @@
 import os
 import json
 import httpx
+from typing import List, Dict, Optional, Any
 from app.core.config import settings
 from app.core.logging import logger
-from typing import List, Dict, Optional
 
 
 class OpenRouterClient:
+    """
+    OpenRouter API Client for LLM execution fallback chain.
+    Fallback chain order: DeepSeek -> Qwen -> Llama -> Gemma.
+    """
     def __init__(self):
-        self.gemini_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY") or ""
-        self.api_key = settings.OPENROUTER_API_KEY or settings.OPENAI_API_KEY or ""
+        self.api_key = settings.OPENROUTER_API_KEY or settings.OPENAI_API_KEY or os.environ.get("OPENROUTER_API_KEY") or ""
         self.base_url = "https://openrouter.ai/api/v1"
         self.fallback_models = [
             "deepseek/deepseek-chat",
             "qwen/qwen-2.5-72b-instruct",
-            "meta-llama/llama-3.3-70b-instruct"
+            "meta-llama/llama-3.3-70b-instruct",
+            "google/gemma-2-27b-it"
         ]
-
-    async def _call_gemini_api(
-        self,
-        gemini_key: str,
-        messages: List[Dict],
-        model_name: Optional[str] = None,
-        temperature: float = 0.7,
-        max_tokens: int = 1000
-    ) -> Optional[Dict]:
-        """Call Google Gemini REST API directly using GEMINI_API_KEY."""
-        try:
-            system_text = ""
-            contents = []
-
-            for m in messages:
-                role = m.get("role", "user")
-                raw_content = m.get("content", "")
-                gemini_role = "model" if role == "assistant" else "user"
-
-                parts = []
-                if isinstance(raw_content, str):
-                    if role == "system":
-                        system_text += raw_content + "\n"
-                        continue
-                    parts.append({"text": raw_content})
-                elif isinstance(raw_content, list):
-                    for item in raw_content:
-                        if isinstance(item, dict):
-                            if item.get("type") == "text":
-                                if role == "system":
-                                    system_text += item.get("text", "") + "\n"
-                                else:
-                                    parts.append({"text": item.get("text", "")})
-                            elif item.get("type") == "image_url":
-                                img_url = item.get("image_url", {}).get("url", "")
-                                if img_url.startswith("data:"):
-                                    try:
-                                        header, b64_data = img_url.split(",", 1)
-                                        mime_type = header.split(";")[0].replace("data:", "")
-                                        parts.append({
-                                            "inline_data": {
-                                                "mime_type": mime_type,
-                                                "data": b64_data
-                                            }
-                                        })
-                                    except Exception:
-                                        pass
-
-                if parts:
-                    contents.append({"role": gemini_role, "parts": parts})
-
-            # Merge consecutive same-role items for Gemini API validation
-            merged_contents = []
-            for item in contents:
-                if merged_contents and merged_contents[-1]["role"] == item["role"]:
-                    merged_contents[-1]["parts"].extend(item["parts"])
-                else:
-                    merged_contents.append(item)
-
-            if not merged_contents:
-                merged_contents.append({"role": "user", "parts": [{"text": system_text or "Hello"}]})
-
-            if system_text and merged_contents and merged_contents[0]["role"] == "user":
-                if merged_contents[0]["parts"] and "text" in merged_contents[0]["parts"][0]:
-                    orig_t = merged_contents[0]["parts"][0]["text"]
-                    merged_contents[0]["parts"][0]["text"] = f"[System Context:\n{system_text.strip()}]\n\n{orig_t}"
-
-            payload = {
-                "contents": merged_contents,
-                "generationConfig": {
-                    "temperature": temperature,
-                    "maxOutputTokens": min(max_tokens, 2048)
-                }
-            }
-            if system_text.strip():
-                payload["system_instruction"] = {
-                    "parts": [{"text": system_text.strip()}]
-                }
-
-            target_models = []
-            if model_name and "gemini" in model_name.lower():
-                target_models.append(model_name)
-            target_models.extend(["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.0-flash", "gemini-pro-latest", "gemini-2.5-pro"])
-            target_models = list(dict.fromkeys(target_models))
-
-            for g_model in target_models:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{g_model}:generateContent?key={gemini_key}"
-                async with httpx.AsyncClient(timeout=20.0) as client:
-                    response = await client.post(url, json=payload)
-                    if response.status_code == 200:
-                        data = response.json()
-                        candidates = data.get("candidates", [])
-                        if candidates:
-                            parts = candidates[0].get("content", {}).get("parts", [])
-                            text_out = "".join([p.get("text", "") for p in parts if "text" in p])
-                            if text_out:
-                                logger.info(f"Successfully generated response from Google Gemini model: {g_model}")
-                                return {
-                                    "choices": [
-                                        {
-                                            "message": {
-                                                "content": text_out
-                                            }
-                                        }
-                                    ]
-                                }
-                    else:
-                        logger.warning(f"Google Gemini model {g_model} returned status {response.status_code}: {response.text[:200]}")
-        except Exception as e:
-            logger.warning(f"Google Gemini API call failed: {str(e)}")
-
-        return None
 
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000
-    ) -> Dict:
-        # Check Google Gemini API keys first across all configuration sources
-        gemini_keys = [
-            settings.GEMINI_API_KEY,
-            os.environ.get("GEMINI_API_KEY"),
-            self.gemini_key,
-            settings.OPENAI_API_KEY if (settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.startswith("AQ.")) else None,
-            settings.OPENROUTER_API_KEY if (settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.startswith("AQ.")) else None
-        ]
-        gemini_keys = [k.strip() for k in gemini_keys if k and k.strip()]
-        gemini_keys = list(dict.fromkeys(gemini_keys))
-
-        for g_key in gemini_keys:
-            gemini_res = await self._call_gemini_api(
-                gemini_key=g_key,
-                messages=messages,
-                model_name=model,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-            if gemini_res:
-                return gemini_res
-
+    ) -> Dict[str, Any]:
+        """
+        Executes OpenRouter API call attempting candidate models in order.
+        Returns OpenAI-standard format with metadata ('provider' and 'model').
+        """
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://lifeos.app",
             "X-Title": "LifeOS"
         }
-        
+
         models_to_try = [model] if model else self.fallback_models
-        
+        # Remove empty or duplicate models
+        models_to_try = [m for m in models_to_try if m]
+
         for attempt_model in models_to_try:
-            if not attempt_model:
-                continue
             try:
                 payload = {
                     "model": attempt_model,
@@ -177,7 +51,7 @@ class OpenRouterClient:
                     "temperature": temperature,
                     "max_tokens": min(max_tokens, 1000)
                 }
-                
+
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     response = await client.post(
                         f"{self.base_url}/chat/completions",
@@ -185,20 +59,24 @@ class OpenRouterClient:
                         json=payload
                     )
                     response.raise_for_status()
-                    
+
                     result = response.json()
-                    logger.info(f"Successfully got response from model: {attempt_model}")
-                    return result
-                    
+                    if "choices" in result and len(result["choices"]) > 0:
+                        content = result["choices"][0]["message"]["content"]
+                        logger.info(f"Successfully served LLM call via OpenRouter model: {attempt_model}")
+                        return {
+                            "choices": [{"message": {"content": content}}],
+                            "provider": "OpenRouter",
+                            "model": attempt_model,
+                            "status": 200
+                        }
             except Exception as e:
-                logger.warning(f"Model {attempt_model} call failed: {str(e)}")
+                logger.warning(f"OpenRouter model {attempt_model} call failed: {str(e)}")
                 continue
 
-        
-        # All API models failed / unauthorized / offline -> Return structured agent fallback
-        logger.warning("All OpenRouter models failed. Returning fallback intelligent response.")
-        
-        # Extract last user input message if present
+        # All online OpenRouter models failed -> Return structured intelligent fallback
+        logger.warning("All OpenRouter fallback models failed. Returning local intelligent fallback response.")
+
         user_text = ""
         for m in reversed(messages):
             if m.get("role") == "user":
@@ -209,11 +87,11 @@ class OpenRouterClient:
                 elif isinstance(raw_content, str):
                     user_text = raw_content
                 break
-        
+
         fallback_reply = "Hello! I am your Redora AI Assistant. I can help you organize daily tasks, create study roadmaps, track habits, set goals, and prepare for interviews. What goal or task would you like to work on today?"
         if any(h in user_text.lower() for h in ["hi", "hello", "hey"]):
             fallback_reply = "Hello! How can I assist you with your tasks, goals, or study plan today?"
-        
+
         fallback_json = json.dumps({
             "response_text": fallback_reply,
             "tasks": [],
@@ -236,5 +114,8 @@ class OpenRouterClient:
                         "content": fallback_json
                     }
                 }
-            ]
+            ],
+            "provider": "LocalFallback",
+            "model": "local-fallback",
+            "status": 200
         }

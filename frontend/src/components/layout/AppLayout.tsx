@@ -14,7 +14,8 @@ import {
   Code2,
   FileCheck,
   Database,
-  Settings
+  Settings,
+  Mic
 } from 'lucide-react'
 import { NetworkStatusBanner } from '../ui/UIStates'
 import { ThemeToggle } from '../ui/ThemeToggle'
@@ -45,6 +46,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   ]
 
   const toolNavItems = [
+    { name: 'Speaking Practice', path: '/tools/speaking', icon: Mic },
     { name: 'PDF Toolkit', path: '/tools/pdf', icon: FileText },
     { name: 'GPA Calculator', path: '/tools/gpa', icon: Calculator },
     { name: 'Code Sandbox', path: '/tools/sandbox', icon: Code2 },
