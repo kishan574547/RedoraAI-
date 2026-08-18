@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import routes_auth, routes_chat, routes_chat_sessions, routes_tasks, routes_goals, routes_memory, routes_activity, routes_habits, routes_suggestions, routes_pdf_tools, routes_gpa, routes_code_sandbox, routes_resume_ats, routes_kaggle
+from app.api.v1 import routes_auth, routes_chat, routes_chat_sessions, routes_tasks, routes_goals, routes_memory, routes_activity, routes_habits, routes_suggestions, routes_pdf_tools, routes_gpa, routes_code_sandbox, routes_resume_ats, routes_kaggle, routes_speaking_practice
 
 api_router = APIRouter()
 
@@ -17,6 +17,7 @@ api_router.include_router(routes_gpa.router, prefix="/tools/gpa", tags=["gpa-too
 api_router.include_router(routes_code_sandbox.router, prefix="/tools/sandbox", tags=["code-sandbox"])
 api_router.include_router(routes_resume_ats.router, prefix="/tools/resume-ats", tags=["resume-ats"])
 api_router.include_router(routes_kaggle.router, prefix="/tools/kaggle", tags=["kaggle"])
+api_router.include_router(routes_speaking_practice.router, prefix="/tools/speaking-practice", tags=["speaking-practice"])
 
 
 

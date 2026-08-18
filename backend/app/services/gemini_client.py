@@ -112,8 +112,8 @@ class GeminiClient:
         # Determine target models (Gemini Primary requirement)
         target_models = []
         if model and "gemini" in model.lower():
-            target_models.append(model)
-        target_models.extend(["gemini-1.5-flash-latest", "gemini-2.0-flash-exp", "gemini-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"])
+          target_models.append(model)
+        target_models.extend(["gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"])
         target_models = list(dict.fromkeys(target_models))
 
         # Format messages into Gemini REST API format

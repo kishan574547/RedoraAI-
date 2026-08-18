@@ -180,17 +180,18 @@ export default function SpeakingPractice() {
 
       recognition.onresult = (event: any) => {
         let currentTranscript = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        for (let i = 0; i < event.results.length; i++) {
           currentTranscript += event.results[i][0].transcript
         }
         if (currentTranscript.trim()) {
+          console.log('[1. TRANSCRIPTION STEP] Raw transcribed text captured:', currentTranscript)
           setTranscript(currentTranscript)
           latestTranscriptRef.current = currentTranscript
         }
       }
 
       recognition.onerror = (event: any) => {
-        console.warn('Speech recognition error:', event.error)
+        console.warn('[1. TRANSCRIPTION STEP] Speech recognition error event:', event.error)
         stopMicAnalyser()
         isListeningRef.current = false
         if (event.error !== 'no-speech' && event.error !== 'aborted') {
@@ -204,11 +205,15 @@ export default function SpeakingPractice() {
       recognition.onend = () => {
         stopMicAnalyser()
         const textToProcess = latestTranscriptRef.current.trim()
+        console.log('[1. TRANSCRIPTION STEP] Recognition ended. Final captured transcript:', textToProcess || '(empty)')
         isListeningRef.current = false
 
         if (textToProcess && !isProcessingRef.current) {
-          // Automatically submit captured user speech when user stops speaking!
           processUserSpeech(textToProcess)
+        } else if (!textToProcess && !isProcessingRef.current) {
+          console.warn('[1. TRANSCRIPTION STEP] Empty speech transcript detected.')
+          setErrorMsg("Didn't catch that — try again")
+          setAssistantState('idle')
         } else if (!isProcessingRef.current) {
           setAssistantState('idle')
         }
@@ -304,8 +309,15 @@ export default function SpeakingPractice() {
   // Speech Synthesis (Read AI response aloud)
   const speakText = (text: string) => {
     const cleanText = extractCleanSpeechText(text)
+    console.log('[5. SPEECHSYNTHESIS STEP] Preparing to speak text:', cleanText)
+
+    // Immediately transition state to speaking and start orb cadence
+    setAssistantState('speaking')
+    startSpeakingCadence()
 
     if (isAudioMuted || !('speechSynthesis' in window)) {
+      console.warn('[5. SPEECHSYNTHESIS STEP] Audio muted or SpeechSynthesis API missing.')
+      stopSpeakingCadence()
       setAssistantState('idle')
       isProcessingRef.current = false
       if (isHandsFreeRef.current) {
@@ -316,6 +328,9 @@ export default function SpeakingPractice() {
 
     try {
       window.speechSynthesis.cancel() // Stop prior speech
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume()
+      }
 
       const utterance = new SpeechSynthesisUtterance(cleanText)
       utterance.rate = 0.95
@@ -351,22 +366,31 @@ export default function SpeakingPractice() {
       }
 
       utterance.onstart = () => {
+        console.log('[5. SPEECHSYNTHESIS STEP] SpeechSynthesisUtterance started audio output.')
         if (isComponentMounted.current) {
           setAssistantState('speaking')
           startSpeakingCadence()
         }
       }
 
-      utterance.onend = finishSpeaking
-      utterance.onerror = finishSpeaking
+      utterance.onend = () => {
+        console.log('[5. SPEECHSYNTHESIS STEP] SpeechSynthesisUtterance ended audio output.')
+        finishSpeaking()
+      }
+
+      utterance.onerror = (event: any) => {
+        console.error('[5. SPEECHSYNTHESIS STEP] SpeechSynthesisUtterance onerror event:', event)
+        finishSpeaking()
+      }
 
       // Safety timeout: if speech synthesis gets stuck, force finish after estimated speech duration
       const estimatedDurationMs = Math.max(4000, cleanText.length * 80)
       setTimeout(finishSpeaking, estimatedDurationMs)
 
+      console.log('[5. SPEECHSYNTHESIS STEP] Calling window.speechSynthesis.speak(utterance)...')
       window.speechSynthesis.speak(utterance)
     } catch (err) {
-      console.warn("SpeechSynthesis error:", err)
+      console.error('[5. SPEECHSYNTHESIS STEP] SpeechSynthesis exception:', err)
       setAssistantState('idle')
       isProcessingRef.current = false
     }
@@ -439,6 +463,14 @@ export default function SpeakingPractice() {
 
   // Send user speech / text to Speaking Practice Backend Agent
   const processUserSpeech = async (userText: string) => {
+    if (!userText || !userText.trim()) {
+      console.warn('[1. TRANSCRIPTION STEP] Empty userText passed to processUserSpeech.')
+      setErrorMsg("Didn't catch that — try again")
+      setAssistantState('idle')
+      isProcessingRef.current = false
+      return
+    }
+
     if (isProcessingRef.current) return
     isProcessingRef.current = true
     setAssistantState('thinking')
@@ -458,44 +490,61 @@ export default function SpeakingPractice() {
     setTranscript('')
     latestTranscriptRef.current = ''
 
+    const currentTopicObj = TOPICS.find((t) => t.id === selectedTopic)
+    const topicName = currentTopicObj ? currentTopicObj.title : 'Free Talk'
+
+    const payload = {
+      user_text: userText,
+      topic: topicName,
+      conversation_history: messages.map((m) => ({ role: m.role, content: m.text }))
+    }
+
+    console.log('[2. REQUEST STEP] Sending payload to POST /tools/speaking-practice/respond:', payload)
+
     try {
       const token = localStorage.getItem('access_token') || ''
-      const currentTopicObj = TOPICS.find((t) => t.id === selectedTopic)
-      const topicName = currentTopicObj ? currentTopicObj.title : 'Free Talk'
 
-      const res = await fetch('/api/v1/chat/message', {
+      const res = await fetch('/api/v1/tools/speaking-practice/respond', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({
-          message: `[English Speaking Practice - Topic: ${topicName}]: ${userText}`
-        })
+        body: JSON.stringify(payload)
       })
 
       if (!res.ok) {
-        throw new Error(`HTTP error ${res.status}`)
+        const errText = await res.text().catch(() => '')
+        throw new Error(`HTTP ${res.status}: ${errText || res.statusText}`)
       }
 
       const data = await res.json()
-      const rawReply = data.response || "Great effort! Keep practicing your vocal clarity and pacing."
-      const cleanReply = extractCleanSpeechText(rawReply)
+      console.log('[4. RESPONSE HANDLING STEP] Received response payload from backend:', data)
+
+      const aiReply = data?.ai_response || data?.response || data?.text
+      if (!aiReply || typeof aiReply !== 'string' || !aiReply.trim()) {
+        console.error('[4. RESPONSE HANDLING STEP] Empty or malformed ai_response received:', data)
+        setErrorMsg("Received empty response from AI coach — please try again")
+        setAssistantState('idle')
+        isProcessingRef.current = false
+        return
+      }
+
+      const cleanReply = extractCleanSpeechText(aiReply)
+      console.log('[4. RESPONSE HANDLING STEP] Displaying clean response text & triggering SpeechSynthesis:', cleanReply)
 
       const assistantMsg: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         text: cleanReply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestions: data.suggestions || [],
-        practiceQuestions: data.practice_questions || []
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
 
       setMessages((prev) => [...prev, assistantMsg])
       speakText(cleanReply)
     } catch (err: any) {
-      console.error('Error contacting speaking agent:', err)
-      setErrorMsg("Having trouble responding right now, please try again.")
+      console.error('[2. REQUEST STEP] Error during API call to /tools/speaking-practice/respond:', err)
+      setErrorMsg("Trouble connecting — please try again")
       setAssistantState('idle')
       isProcessingRef.current = false
     }
