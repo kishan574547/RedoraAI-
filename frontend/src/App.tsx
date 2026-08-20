@@ -11,6 +11,7 @@ import CodeSandbox from './pages/tools/CodeSandbox'
 import ResumeAtsChecker from './pages/tools/ResumeAtsChecker'
 import KaggleExplorer from './pages/tools/KaggleExplorer'
 import SpeakingPractice from './pages/tools/SpeakingPractice'
+import MockInterview from './pages/tools/MockInterview'
 import Settings from './pages/Settings'
 
 import AppLayout from './components/layout/AppLayout'
@@ -113,6 +114,7 @@ function App() {
           <Route path="/tools/resume-ats" element={<ProtectedRoute><ResumeAtsChecker /></ProtectedRoute>} />
           <Route path="/tools/kaggle" element={<ProtectedRoute><KaggleExplorer /></ProtectedRoute>} />
           <Route path="/tools/speaking" element={<ProtectedRoute><SpeakingPractice /></ProtectedRoute>} />
+          <Route path="/tools/mock-interview" element={<ProtectedRoute><MockInterview /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

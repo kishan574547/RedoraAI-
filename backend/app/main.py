@@ -61,6 +61,18 @@ def on_startup():
             conn.commit()
         except Exception:
             pass
+
+        # Migrate mock_interview_sessions table
+        try:
+            conn.execute(text("ALTER TABLE mock_interview_sessions ADD COLUMN difficulty_level VARCHAR DEFAULT 'Mid-Level';"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE mock_interview_sessions ADD COLUMN interview_type VARCHAR DEFAULT 'Full Interview (Mixed)';"))
+            conn.commit()
+        except Exception:
+            pass
     logger.info("Database schema initialized and verified.")
 
 

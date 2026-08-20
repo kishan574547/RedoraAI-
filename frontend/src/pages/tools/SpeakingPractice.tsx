@@ -18,7 +18,11 @@ import {
   Square,
   Clock,
   Award,
-  CheckCircle2
+  CheckCircle2,
+  Terminal,
+  Copy,
+  Check,
+  X
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -151,8 +155,63 @@ export default function SpeakingPractice() {
     return () => clearInterval(timer)
   }, [sessionStartTime])
 
-  // Pre-load speech synthesis voices
+  // Redora Voice & Multi-Language Diagnostic States
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('en-US')
+  const [isSpeechSupported, setIsSpeechSupported] = useState<boolean>(true)
+  const [micPermissionState, setMicPermissionState] = useState<string>('unknown')
+  const [diagnosticLogs, setDiagnosticLogs] = useState<string[]>([])
+  const [showDiagnosticPanel, setShowDiagnosticPanel] = useState<boolean>(false)
+  const [copiedLogs, setCopiedLogs] = useState<boolean>(false)
+
+  const SUPPORTED_LANGUAGES = [
+    { code: 'en-US', name: 'English', flag: '🇺🇸' },
+    { code: 'te-IN', name: 'Telugu / తెలుగు', flag: '🇮🇳' },
+    { code: 'ta-IN', name: 'Tamil / தமிழ்', flag: '🇮🇳' },
+    { code: 'hi-IN', name: 'Hindi / हिंदी', flag: '🇮🇳' }
+  ]
+
+  const addDiagnosticLog = (event: string, detail?: any) => {
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, 12)
+    const formattedDetail = detail !== undefined
+      ? (typeof detail === 'object' ? JSON.stringify(detail) : String(detail))
+      : ''
+    const logLine = formattedDetail ? `[${timestamp}] [Speaking Practice] ${event} -> ${formattedDetail}` : `[${timestamp}] [Speaking Practice] ${event}`
+    console.log(logLine)
+    setDiagnosticLogs((prev) => [logLine, ...prev].slice(0, 120))
+  }
+
+  // Pre-load speech synthesis voices & check microphone permissions
   useEffect(() => {
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const supported = !!SpeechRec
+    setIsSpeechSupported(supported)
+
+    addDiagnosticLog('Browser SpeechRecognition Initialization Check', {
+      windowSpeechRecognition: (window as any).SpeechRecognition !== undefined,
+      windowWebkitSpeechRecognition: (window as any).webkitSpeechRecognition !== undefined,
+      supported
+    })
+
+    if (!supported) {
+      addDiagnosticLog('CRITICAL: SpeechRecognition is NOT supported in this browser. Chrome or Edge is required.')
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+      navigator.permissions
+        .query({ name: 'microphone' as PermissionName })
+        .then((status) => {
+          addDiagnosticLog('Mic Permission State Query', status.state)
+          setMicPermissionState(status.state)
+          status.onchange = () => {
+            addDiagnosticLog('Mic Permission State Changed', status.state)
+            setMicPermissionState(status.state)
+          }
+        })
+        .catch((err) => {
+          addDiagnosticLog('Mic Permission Query Error', err?.message || String(err))
+        })
+    }
+
     if ('speechSynthesis' in window) {
       window.speechSynthesis.getVoices()
       window.speechSynthesis.onvoiceschanged = () => {
@@ -170,28 +229,78 @@ export default function SpeakingPractice() {
       const recognition = new SpeechRecognition()
       recognition.continuous = false
       recognition.interimResults = true
-      recognition.lang = 'en-US'
+      recognition.lang = selectedLanguage
 
+      // 1. onstart
       recognition.onstart = () => {
+        addDiagnosticLog('EVENT 1/10: onstart - SpeechRecognition started listening')
         isListeningRef.current = true
         setAssistantState('listening')
         setErrorMsg(null)
       }
 
+      // 2. onaudiostart
+      recognition.onaudiostart = () => {
+        addDiagnosticLog('EVENT 2/10: onaudiostart - Audio capture started')
+      }
+
+      // 3. onsoundstart
+      recognition.onsoundstart = () => {
+        addDiagnosticLog('EVENT 3/10: onsoundstart - Sound detected')
+      }
+
+      // 4. onspeechstart
+      recognition.onspeechstart = () => {
+        addDiagnosticLog('EVENT 4/10: onspeechstart - Speech pattern detected')
+      }
+
+      // 5. onspeechend
+      recognition.onspeechend = () => {
+        addDiagnosticLog('EVENT 5/10: onspeechend - Speech input ended')
+      }
+
+      // 6. onsoundend
+      recognition.onsoundend = () => {
+        addDiagnosticLog('EVENT 6/10: onsoundend - Sound capture ended')
+      }
+
+      // 7. onaudioend
+      recognition.onaudioend = () => {
+        addDiagnosticLog('EVENT 7/10: onaudioend - Audio capture ended')
+      }
+
+      // 8. onresult
       recognition.onresult = (event: any) => {
+        addDiagnosticLog('EVENT 8/10: onresult - Speech result received', {
+          resultsLength: event.results?.length,
+          isFinal: event.results?.[0]?.isFinal
+        })
         let currentTranscript = ''
         for (let i = 0; i < event.results.length; i++) {
           currentTranscript += event.results[i][0].transcript
         }
         if (currentTranscript.trim()) {
-          console.log('[1. TRANSCRIPTION STEP] Raw transcribed text captured:', currentTranscript)
+          addDiagnosticLog(`EXTRACTED TRANSCRIPT: "${currentTranscript.trim()}"`)
           setTranscript(currentTranscript)
           latestTranscriptRef.current = currentTranscript
         }
       }
 
+      // 9. onerror
       recognition.onerror = (event: any) => {
-        console.warn('[1. TRANSCRIPTION STEP] Speech recognition error event:', event.error)
+        const errorType = event.error || 'unknown'
+        addDiagnosticLog(`EVENT 9/10: onerror - SpeechRecognition ERROR: error.error="${errorType}"`, {
+          error: errorType,
+          cause: errorType === 'not-allowed'
+            ? 'Microphone permission denied'
+            : errorType === 'no-speech'
+            ? 'No speech detected before timeout'
+            : errorType === 'network'
+            ? 'Network connection error (Chrome Speech API requires active internet)'
+            : errorType === 'audio-capture'
+            ? 'No microphone hardware detected'
+            : 'Generic error'
+        })
         stopMicAnalyser()
         isListeningRef.current = false
         if (event.error !== 'no-speech' && event.error !== 'aborted') {
@@ -202,16 +311,16 @@ export default function SpeakingPractice() {
         }
       }
 
+      // 10. onend
       recognition.onend = () => {
+        addDiagnosticLog('EVENT 10/10: onend - Recognition service disconnected')
         stopMicAnalyser()
         const textToProcess = latestTranscriptRef.current.trim()
-        console.log('[1. TRANSCRIPTION STEP] Recognition ended. Final captured transcript:', textToProcess || '(empty)')
         isListeningRef.current = false
 
         if (textToProcess && !isProcessingRef.current) {
           processUserSpeech(textToProcess)
         } else if (!textToProcess && !isProcessingRef.current) {
-          console.warn('[1. TRANSCRIPTION STEP] Empty speech transcript detected.')
           setErrorMsg("Didn't catch that — try again")
           setAssistantState('idle')
         } else if (!isProcessingRef.current) {
@@ -232,7 +341,7 @@ export default function SpeakingPractice() {
         window.speechSynthesis.cancel()
       }
     }
-  }, [])
+  }, [selectedLanguage])
 
   // Web Audio API: Live Mic Volume Tracking (getByteFrequencyData)
   const startMicAnalyser = async () => {
@@ -335,14 +444,19 @@ export default function SpeakingPractice() {
       const utterance = new SpeechSynthesisUtterance(cleanText)
       utterance.rate = 0.95
       utterance.pitch = 1.0
+      utterance.lang = selectedLanguage
 
-      // Select natural English voice if available
+      // Select voice matching selectedLanguage
       const voices = window.speechSynthesis.getVoices()
-      const englishVoice =
-        voices.find((v) => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Alex'))) ||
-        voices.find((v) => v.lang.startsWith('en'))
-      if (englishVoice) {
-        utterance.voice = englishVoice
+      const langPrefix = selectedLanguage.split('-')[0]
+      const matchedVoice =
+        voices.find((v) => v.lang === selectedLanguage) ||
+        voices.find((v) => v.lang.startsWith(langPrefix))
+      if (matchedVoice) {
+        utterance.voice = matchedVoice
+        addDiagnosticLog(`SpeechSynthesis voice selected: "${matchedVoice.name}" (${matchedVoice.lang}) for target "${selectedLanguage}"`)
+      } else {
+        addDiagnosticLog(`SpeechSynthesis warning: No specific voice found for "${selectedLanguage}". Fallback voice used.`)
       }
 
       let hasFinished = false
@@ -496,6 +610,7 @@ export default function SpeakingPractice() {
     const payload = {
       user_text: userText,
       topic: topicName,
+      language: selectedLanguage,
       conversation_history: messages.map((m) => ({ role: m.role, content: m.text }))
     }
 
@@ -633,7 +748,41 @@ export default function SpeakingPractice() {
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 self-end sm:self-auto">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2 self-end sm:self-auto">
+          {/* Language Selector Dropdown */}
+          <div className="relative inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <Globe className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+            <select
+              value={selectedLanguage}
+              onChange={(e) => {
+                setSelectedLanguage(e.target.value)
+                addDiagnosticLog(`Language changed to "${e.target.value}"`)
+              }}
+              className="bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold focus:outline-none cursor-pointer text-xs pr-1"
+              title="Select Speech Recognition & Output Language"
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                  {lang.flag} {lang.name} ({lang.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Diagnostics Panel Toggle */}
+          <button
+            onClick={() => setShowDiagnosticPanel(!showDiagnosticPanel)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              showDiagnosticPanel
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
+            }`}
+            title="Toggle Redora Voice Diagnostic Console"
+          >
+            <Terminal className="w-3.5 h-3.5 text-amber-500" />
+            <span>Diagnostics ({diagnosticLogs.length})</span>
+          </button>
+
           {/* Hands-Free Toggle */}
           <button
             onClick={() => setIsHandsFree(!isHandsFree)}
@@ -969,6 +1118,99 @@ export default function SpeakingPractice() {
                 Back to Tools
               </Link>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Diagnostic Logs & Status Overlay Panel */}
+      {showDiagnosticPanel && (
+        <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-slate-900 text-slate-100 shadow-2xl z-50 border-l border-slate-800 flex flex-col font-sans transition-all">
+          {/* Diagnostic Panel Header */}
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-5 h-5 text-amber-400" />
+              <h2 className="font-bold text-sm text-white">Speaking Practice Diagnostic Console</h2>
+            </div>
+            <button
+              onClick={() => setShowDiagnosticPanel(false)}
+              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Diagnostic System Metrics Cards */}
+          <div className="p-4 bg-slate-900 border-b border-slate-800 grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Speech Recognition</span>
+              <span className={`font-semibold ${isSpeechSupported ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isSpeechSupported ? '✓ Supported' : '✗ Unsupported'}
+              </span>
+            </div>
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Mic Permission</span>
+              <span className={`font-semibold ${micPermissionState === 'granted' ? 'text-emerald-400' : micPermissionState === 'denied' ? 'text-rose-400' : 'text-amber-400'}`}>
+                {micPermissionState.toUpperCase()}
+              </span>
+            </div>
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Voice Language</span>
+              <span className="font-semibold text-indigo-300">{selectedLanguage}</span>
+            </div>
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Coach State</span>
+              <span className="font-semibold text-amber-400 uppercase">{assistantState}</span>
+            </div>
+          </div>
+
+          {/* Panel Toolbar */}
+          <div className="px-4 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between text-xs">
+            <span className="text-slate-400 text-[11px] font-mono">Event Log Entries ({diagnosticLogs.length})</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(diagnosticLogs.join('\n'))
+                  setCopiedLogs(true)
+                  setTimeout(() => setCopiedLogs(false), 2000)
+                }}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium flex items-center gap-1 transition-colors"
+              >
+                {copiedLogs ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedLogs ? 'Copied!' : 'Copy Logs'}</span>
+              </button>
+              <button
+                onClick={() => setDiagnosticLogs([])}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium flex items-center gap-1 transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Clear</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Scrollable Event Logs Terminal */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-1.5 font-mono text-[11px] bg-slate-950 text-emerald-400 scrollbar-thin scrollbar-thumb-slate-800">
+            {diagnosticLogs.length === 0 ? (
+              <div className="text-slate-500 py-10 text-center font-sans text-xs">
+                No diagnostic log entries recorded yet. Click the Mic button to capture events.
+              </div>
+            ) : (
+              diagnosticLogs.map((log, index) => (
+                <div
+                  key={index}
+                  className={`py-0.5 border-b border-slate-900/60 leading-relaxed break-words ${
+                    log.includes('ERROR') || log.includes('onerror') || log.includes('CRITICAL')
+                      ? 'text-rose-400 font-semibold bg-rose-950/20 px-1 rounded'
+                      : log.includes('EVENT')
+                      ? 'text-indigo-300'
+                      : log.includes('TRANSCRIPT')
+                      ? 'text-amber-300 font-bold bg-amber-950/20 px-1 rounded'
+                      : 'text-emerald-400'
+                  }`}
+                >
+                  {log}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

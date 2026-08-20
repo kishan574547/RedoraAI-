@@ -14,13 +14,14 @@ class SpeakingPracticeRequest(BaseModel):
     user_speech: Optional[str] = None
     message: Optional[str] = None
     topic: Optional[str] = "Free Talk"
+    language: Optional[str] = "en-US"
     conversation_history: Optional[List[Dict[str, Any]]] = []
 
 
 @router.post("/respond")
 async def api_speaking_practice_respond(req: SpeakingPracticeRequest):
     """
-    Dedicated endpoint for Redora Speak (English Speaking Practice).
+    Dedicated endpoint for Redora Speak (English & Multilingual Speaking Practice).
     Receives user spoken text, contacts Gemini/OpenRouter LLM, and returns { ai_response, feedback_note }.
     """
     user_input = (req.user_text or req.user_speech or req.message or "").strip()
@@ -28,20 +29,32 @@ async def api_speaking_practice_respond(req: SpeakingPracticeRequest):
         logger.warning("[SpeakingPractice API] Empty user input provided.")
         raise HTTPException(status_code=400, detail="User input text cannot be empty.")
 
-    logger.info(f"[SpeakingPractice API] Received request for topic '{req.topic}': '{user_input}'")
+    logger.info(f"[SpeakingPractice API] Received request for topic '{req.topic}' (lang='{req.language}'): '{user_input}'")
 
-    system_prompt = f"""You are Redora Speak, an encouraging, friendly, and expert English speech coach.
-The user is practicing spoken English under the topic context: "{req.topic}".
+    lang_map = {
+        'te-IN': 'Telugu',
+        'ta-IN': 'Tamil',
+        'hi-IN': 'Hindi',
+        'en-US': 'English'
+    }
+    lang_code = req.language or 'en-US'
+    target_lang_name = lang_map.get(lang_code, 'English')
+    lang_instruction = ""
+    if target_lang_name != 'English':
+        lang_instruction = f"\n3. LANGUAGE INSTRUCTION: The user selected {target_lang_name} ({lang_code}). Respond and provide feedback in clear, natural {target_lang_name} native script."
+
+    system_prompt = f"""You are Redora Speak, an encouraging, friendly, and expert speech coach.
+The user is practicing speech under the topic context: "{req.topic}".
 
 INSTRUCTIONS:
 1. Respond to the user naturally in 2 to 4 conversational sentences so they can practice listening and keep the dialogue going.
-2. In a separate short feedback note (1-2 sentences), provide constructive, supportive feedback on their phrasing, grammar, or vocabulary, or applaud their clarity.
+2. In a separate short feedback note (1-2 sentences), provide constructive, supportive feedback on their phrasing, grammar, or vocabulary, or applaud their clarity.{lang_instruction}
 
 Output your final response as valid JSON matching this exact structure:
 ```json
 {{
   "ai_response": "Your conversational response to speak aloud to the user...",
-  "feedback_note": "Short feedback on their English usage or pronunciation..."
+  "feedback_note": "Short feedback on their usage or pronunciation..."
 }}
 ```
 Do NOT include any extra formatting or text outside the JSON.
