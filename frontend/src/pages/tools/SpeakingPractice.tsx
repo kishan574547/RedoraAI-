@@ -25,6 +25,7 @@ import {
   X
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import api from '../../lib/api'
 
 export type AssistantState = 'idle' | 'listening' | 'thinking' | 'speaking'
 export type TopicCategory = 'free' | 'daily' | 'travel' | 'work'
@@ -578,7 +579,7 @@ export default function SpeakingPractice() {
   // Send user speech / text to Speaking Practice Backend Agent
   const processUserSpeech = async (userText: string) => {
     if (!userText || !userText.trim()) {
-      console.warn('[1. TRANSCRIPTION STEP] Empty userText passed to processUserSpeech.')
+      addDiagnosticLog('[1. TRANSCRIPTION STEP] Empty userText passed to processUserSpeech.')
       setErrorMsg("Didn't catch that — try again")
       setAssistantState('idle')
       isProcessingRef.current = false
@@ -614,30 +615,23 @@ export default function SpeakingPractice() {
       conversation_history: messages.map((m) => ({ role: m.role, content: m.text }))
     }
 
+    addDiagnosticLog('[2. REQUEST STEP] Sending payload to POST /tools/speaking-practice/respond', payload)
     console.log('[2. REQUEST STEP] Sending payload to POST /tools/speaking-practice/respond:', payload)
 
     try {
-      const token = localStorage.getItem('access_token') || ''
+      const res = await api.post('/tools/speaking-practice/respond', payload)
 
-      const res = await fetch('/api/v1/tools/speaking-practice/respond', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify(payload)
+      addDiagnosticLog('[3. RESPONSE STEP] Received HTTP status & body back', {
+        status: res.status,
+        statusText: res.statusText,
+        data: res.data
       })
+      console.log('[3. RESPONSE STEP] Received HTTP status & data:', res.status, res.data)
 
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '')
-        throw new Error(`HTTP ${res.status}: ${errText || res.statusText}`)
-      }
-
-      const data = await res.json()
-      console.log('[4. RESPONSE HANDLING STEP] Received response payload from backend:', data)
-
+      const data = res.data
       const aiReply = data?.ai_response || data?.response || data?.text
       if (!aiReply || typeof aiReply !== 'string' || !aiReply.trim()) {
+        addDiagnosticLog('[4. RESPONSE HANDLING STEP] Empty or malformed ai_response received', data)
         console.error('[4. RESPONSE HANDLING STEP] Empty or malformed ai_response received:', data)
         setErrorMsg("Received empty response from AI coach — please try again")
         setAssistantState('idle')
@@ -646,6 +640,7 @@ export default function SpeakingPractice() {
       }
 
       const cleanReply = extractCleanSpeechText(aiReply)
+      addDiagnosticLog('[4. RESPONSE HANDLING STEP] Displaying clean response text & triggering SpeechSynthesis', cleanReply)
       console.log('[4. RESPONSE HANDLING STEP] Displaying clean response text & triggering SpeechSynthesis:', cleanReply)
 
       const assistantMsg: Message = {
@@ -658,7 +653,14 @@ export default function SpeakingPractice() {
       setMessages((prev) => [...prev, assistantMsg])
       speakText(cleanReply)
     } catch (err: any) {
-      console.error('[2. REQUEST STEP] Error during API call to /tools/speaking-practice/respond:', err)
+      const errDetails = {
+        message: err.message || String(err),
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        responseData: err.response?.data
+      }
+      addDiagnosticLog('[2. REQUEST ERROR] Exception during POST /tools/speaking-practice/respond', errDetails)
+      console.error('[2. REQUEST ERROR] Error during API call to /tools/speaking-practice/respond:', errDetails, err)
       setErrorMsg("Trouble connecting — please try again")
       setAssistantState('idle')
       isProcessingRef.current = false

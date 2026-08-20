@@ -20,6 +20,7 @@ import {
   Layers,
   Gauge
 } from 'lucide-react'
+import api from '../../lib/api'
 
 interface QuestionAnswer {
   question_num: number
@@ -106,16 +107,8 @@ export default function MockInterview() {
   const fetchHistory = async () => {
     setIsLoadingHistory(true)
     try {
-      const token = localStorage.getItem('access_token') || ''
-      const res = await fetch('/api/v1/tools/mock-interview/history', {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setHistoryList(data.sessions || [])
-      }
+      const res = await api.get('/tools/mock-interview/history')
+      setHistoryList(res.data.sessions || [])
     } catch (err) {
       console.error('[MockInterview] Failed to fetch history:', err)
     } finally {
@@ -133,14 +126,8 @@ export default function MockInterview() {
   const handleSelectPastSession = async (pastSessionId: number) => {
     setErrorMsg(null)
     try {
-      const token = localStorage.getItem('access_token') || ''
-      const res = await fetch(`/api/v1/tools/mock-interview/${pastSessionId}`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-      })
-      if (!res.ok) throw new Error('Failed to load past session details')
-      const data = await res.json()
+      const res = await api.get(`/tools/mock-interview/${pastSessionId}`)
+      const data = res.data
 
       setSessionId(data.session_id)
       setPersonaRole(data.persona_role)
@@ -152,7 +139,9 @@ export default function MockInterview() {
       setActiveTab('new')
       setViewState('summary')
     } catch (err: any) {
-      setErrorMsg(err.message || 'Trouble loading past session')
+      console.error('[MockInterview] Failed to load past session:', err)
+      const detail = err.response?.data?.detail || err.message || 'Trouble loading past session'
+      setErrorMsg(detail)
     }
   }
 
@@ -247,21 +236,9 @@ export default function MockInterview() {
         formData.append('file', selectedFile)
       }
 
-      const token = localStorage.getItem('access_token') || ''
-      const res = await fetch('/api/v1/tools/mock-interview/start', {
-        method: 'POST',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: formData
-      })
+      const res = await api.post('/tools/mock-interview/start', formData)
+      const data = res.data
 
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '')
-        throw new Error(`HTTP ${res.status}: ${errText || 'Failed to start session'}`)
-      }
-
-      const data = await res.json()
       setSessionId(data.session_id)
       setPersonaRole(data.persona_role)
       setPersonaTrait(data.persona_trait)
@@ -276,7 +253,8 @@ export default function MockInterview() {
       speakQuestion(data.first_question)
     } catch (err: any) {
       console.error('[MockInterview] Failed to start interview:', err)
-      setErrorMsg(err.message || 'Trouble starting interview session — please try again.')
+      const detail = err.response?.data?.detail || err.message || 'Trouble starting interview session — please try again.'
+      setErrorMsg(detail)
     } finally {
       setIsStarting(false)
     }
@@ -293,25 +271,11 @@ export default function MockInterview() {
     setErrorMsg(null)
 
     try {
-      const token = localStorage.getItem('access_token') || ''
-      const res = await fetch('/api/v1/tools/mock-interview/answer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          answer_text: userText
-        })
+      const res = await api.post('/tools/mock-interview/answer', {
+        session_id: sessionId,
+        answer_text: userText
       })
-
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '')
-        throw new Error(`HTTP ${res.status}: ${errText || 'Failed to submit answer'}`)
-      }
-
-      const data = await res.json()
+      const data = res.data
 
       if (data.is_complete) {
         setSummaryFeedback(data.summary_feedback)
@@ -325,7 +289,8 @@ export default function MockInterview() {
       }
     } catch (err: any) {
       console.error('[MockInterview] Answer submission failed:', err)
-      setErrorMsg(err.message || 'Trouble processing answer — please try again.')
+      const detail = err.response?.data?.detail || err.message || 'Trouble processing answer — please try again.'
+      setErrorMsg(detail)
     } finally {
       setIsSubmittingAnswer(false)
     }
