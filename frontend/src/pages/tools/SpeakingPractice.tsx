@@ -847,6 +847,9 @@ export default function SpeakingPractice() {
             <Square className="h-3.5 w-3.5 fill-current" />
             <span>End Session</span>
           </button>
+        </div>
+      </div>
+
       {/* BROWSER COMPATIBILITY BANNER */}
       {!isSpeechSupported && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-4 rounded-2xl flex items-center gap-3 text-xs text-amber-800 dark:text-amber-200 font-medium">
