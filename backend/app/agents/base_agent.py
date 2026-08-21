@@ -119,14 +119,15 @@ async def call_llm(
     messages: List[Dict[str, Any]],
     system_prompt: Optional[str] = None,
     context: Optional[Dict[str, Any]] = None,
-    model: Optional[str] = None
+    model: Optional[str] = None,
+    append_common_prompt: bool = True
 ) -> str:
     """
     Unified entry point for all LLM calls across every agent in the application.
     Implements Gemini Primary -> OpenRouter Fallback strategy with circuit breaker and logging.
     """
     combined_prompt = (system_prompt or "").strip()
-    if COMMON_SUGGESTION_PROMPT not in combined_prompt:
+    if append_common_prompt and COMMON_SUGGESTION_PROMPT not in combined_prompt:
         combined_prompt += "\n\n" + COMMON_SUGGESTION_PROMPT
 
     if context:

@@ -532,8 +532,25 @@ export default function SpeakingPractice() {
     }
   }
 
+  // SpeechSynthesis warm-up helper for mobile browsers (iOS Safari / Android Chrome)
+  const warmupSpeechSynthesis = () => {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.resume()
+        const silentUtterance = new SpeechSynthesisUtterance(' ')
+        silentUtterance.volume = 0.01
+        window.speechSynthesis.speak(silentUtterance)
+      } catch (_) {}
+    }
+  }
+
   // Handle User Mic Toggle
   const handleMicToggle = () => {
+    warmupSpeechSynthesis()
+    if (!isSpeechSupported) {
+      setErrorMsg("Voice input (SpeechRecognition) is not supported in this mobile browser (e.g. iOS Safari). You can still practice using text input below!")
+      return
+    }
     if (assistantState === 'listening' || isListeningRef.current) {
       // User manually stopped listening
       if (recognitionRef.current) {
@@ -553,6 +570,7 @@ export default function SpeakingPractice() {
 
   // Topic Selection Handler
   const handleSelectTopic = (topicId: TopicCategory) => {
+    warmupSpeechSynthesis()
     setSelectedTopic(topicId)
     const topicObj = TOPICS.find((t) => t.id === topicId) || TOPICS[0]
     
@@ -570,6 +588,7 @@ export default function SpeakingPractice() {
   // Text Input Submission Fallback
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    warmupSpeechSynthesis()
     if (!textInput.trim() || isProcessingRef.current) return
     const textToSend = textInput.trim()
     setTextInput('')
@@ -657,11 +676,14 @@ export default function SpeakingPractice() {
         message: err.message || String(err),
         status: err.response?.status,
         statusText: err.response?.statusText,
-        responseData: err.response?.data
+        responseData: err.response?.data,
+        configUrl: err.config?.url,
+        configBaseURL: err.config?.baseURL
       }
       addDiagnosticLog('[2. REQUEST ERROR] Exception during POST /tools/speaking-practice/respond', errDetails)
       console.error('[2. REQUEST ERROR] Error during API call to /tools/speaking-practice/respond:', errDetails, err)
-      setErrorMsg("Trouble connecting — please try again")
+      const detailMsg = err.response?.data?.detail || err.message || "Trouble connecting — please try again"
+      setErrorMsg(`Trouble connecting: ${detailMsg}`)
       setAssistantState('idle')
       isProcessingRef.current = false
     }
@@ -825,8 +847,15 @@ export default function SpeakingPractice() {
             <Square className="h-3.5 w-3.5 fill-current" />
             <span>End Session</span>
           </button>
+      {/* BROWSER COMPATIBILITY BANNER */}
+      {!isSpeechSupported && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-4 rounded-2xl flex items-center gap-3 text-xs text-amber-800 dark:text-amber-200 font-medium">
+          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+          <span>
+            <strong>Voice Input Compatibility Notice:</strong> Web Speech API (SpeechRecognition) is not supported in this mobile browser (e.g. iOS Safari). You can still practice seamlessly by typing in the chat input below — your AI coach will generate voice responses!
+          </span>
         </div>
-      </div>
+      )}
 
       {errorMsg && (
         <div className="flex items-center space-x-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-2xl text-sm animate-fade-in">

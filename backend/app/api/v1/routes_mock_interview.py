@@ -21,6 +21,7 @@ class AnswerRequest(BaseModel):
 
 
 @router.post("/start")
+@router.post("/start/")
 async def start_mock_interview(
     request: Request,
     job_description: Optional[str] = Form(None),
@@ -118,6 +119,7 @@ async def start_mock_interview(
 
 
 @router.post("/answer")
+@router.post("/answer/")
 async def answer_mock_interview_question(
     body: AnswerRequest,
     current_user: User = Depends(get_current_user),
@@ -247,6 +249,7 @@ async def answer_mock_interview_question(
 
 
 @router.get("/history")
+@router.get("/history/")
 async def get_mock_interview_history(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -281,6 +284,7 @@ async def get_mock_interview_history(
 
 
 @router.get("/{session_id}")
+@router.get("/{session_id}/")
 @router.get("/{session_id}/summary")
 async def get_mock_interview_detail(
     session_id: int,

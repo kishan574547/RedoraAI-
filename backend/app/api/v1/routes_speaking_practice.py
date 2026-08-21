@@ -19,6 +19,7 @@ class SpeakingPracticeRequest(BaseModel):
 
 
 @router.post("/respond")
+@router.post("/respond/")
 async def api_speaking_practice_respond(req: SpeakingPracticeRequest):
     """
     Dedicated endpoint for Redora Speak (English & Multilingual Speaking Practice).
@@ -65,7 +66,7 @@ Do NOT include any extra formatting or text outside the JSON.
         messages = req.conversation_history + messages
 
     try:
-        raw_output = await call_llm(messages=messages, system_prompt=system_prompt)
+        raw_output = await call_llm(messages=messages, system_prompt=system_prompt, append_common_prompt=False)
         logger.info(f"[SpeakingPractice API] Raw LLM output received: {raw_output[:200]}...")
 
         # Parse structured response

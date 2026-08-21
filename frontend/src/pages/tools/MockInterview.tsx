@@ -145,11 +145,24 @@ export default function MockInterview() {
     }
   }
 
+  // Warmup helper for SpeechSynthesis on mobile browsers (iOS Safari / Android Chrome)
+  const warmupSpeechSynthesis = () => {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.resume()
+        const silentUtterance = new SpeechSynthesisUtterance(' ')
+        silentUtterance.volume = 0.01
+        window.speechSynthesis.speak(silentUtterance)
+      } catch (_) {}
+    }
+  }
+
   // Speech Recognition setup & toggle
   const toggleSpeechRecognition = () => {
+    warmupSpeechSynthesis()
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRec) {
-      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.')
+      setErrorMsg('Speech recognition is not supported in this mobile browser (e.g. iOS Safari). You can still practice by typing your response!')
       return
     }
 
@@ -178,7 +191,12 @@ export default function MockInterview() {
         }
         setIsListening(false)
       }
-      recognition.onerror = () => setIsListening(false)
+      recognition.onerror = (err: any) => {
+        setIsListening(false)
+        if (err.error !== 'no-speech' && err.error !== 'aborted') {
+          setErrorMsg(`Microphone error: ${err.error || 'Permission denied'}`)
+        }
+      }
       recognition.onend = () => setIsListening(false)
 
       recognition.start()
@@ -192,6 +210,9 @@ export default function MockInterview() {
     if (!('speechSynthesis' in window) || !text) return
     try {
       window.speechSynthesis.cancel()
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume()
+      }
       const cleanText = text.replace(/[*#_`>]/g, '').trim()
       const utterance = new SpeechSynthesisUtterance(cleanText.slice(0, 400))
       utterance.lang = 'en-US'
@@ -217,6 +238,7 @@ export default function MockInterview() {
   // Start Session handler
   const handleStartInterview = async (e: React.FormEvent) => {
     e.preventDefault()
+    warmupSpeechSynthesis()
     if (!jobDescriptionText.trim() && !selectedFile) {
       setErrorMsg('Please enter a job description or upload a document to proceed.')
       return
@@ -254,7 +276,7 @@ export default function MockInterview() {
     } catch (err: any) {
       console.error('[MockInterview] Failed to start interview:', err)
       const detail = err.response?.data?.detail || err.message || 'Trouble starting interview session — please try again.'
-      setErrorMsg(detail)
+      setErrorMsg(`Failed to start session (${err.response?.status || 'Network Error'}): ${detail}`)
     } finally {
       setIsStarting(false)
     }
@@ -263,6 +285,7 @@ export default function MockInterview() {
   // Submit Answer handler
   const handleSubmitAnswer = async (e: React.FormEvent) => {
     e.preventDefault()
+    warmupSpeechSynthesis()
     if (!answerInput.trim() || !sessionId || isSubmittingAnswer) return
 
     const userText = answerInput.trim()
@@ -290,7 +313,7 @@ export default function MockInterview() {
     } catch (err: any) {
       console.error('[MockInterview] Answer submission failed:', err)
       const detail = err.response?.data?.detail || err.message || 'Trouble processing answer — please try again.'
-      setErrorMsg(detail)
+      setErrorMsg(`Failed to process answer (${err.response?.status || 'Network Error'}): ${detail}`)
     } finally {
       setIsSubmittingAnswer(false)
     }

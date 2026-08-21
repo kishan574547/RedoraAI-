@@ -9,6 +9,9 @@ const getApiBaseUrl = () => {
     }
     return url
   }
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    console.warn('[Redora AI API] VITE_API_BASE_URL is not set in Vercel environment settings. API calls may fail with 405 Method Not Allowed if routed to Vercel static origin.')
+  }
   return ''
 }
 
@@ -36,7 +39,7 @@ api.interceptors.request.use((config) => {
   }
 
   const token = localStorage.getItem('access_token')
-  if (token) {
+  if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
