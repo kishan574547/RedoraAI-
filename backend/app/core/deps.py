@@ -43,6 +43,14 @@ async def get_current_user(
 
     if user is None and payload.get("email"):
         user = db.query(User).filter(User.email == payload.get("email")).first()
+        if user is None:
+            user = User(
+                email=payload.get("email"),
+                hashed_password="supabase_auth_managed"
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
 
     if user is None:
         raise HTTPException(
