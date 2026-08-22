@@ -18,6 +18,7 @@ class ChatResponse(BaseModel):
     tasks_created: Optional[List[Dict[str, Any]]] = []
     goals_created: Optional[List[Dict[str, Any]]] = []
     suggestions_created: Optional[List[Dict[str, Any]]] = []
+    habits_created: Optional[List[Dict[str, Any]]] = []
     is_multi_agent: Optional[bool] = False
     agent_chain: Optional[List[str]] = []
 

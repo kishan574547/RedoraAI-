@@ -12,7 +12,8 @@ from app.db.models.resource_practice import ResourceLink, PracticeQuestion
 from app.db.models.suggestion import Suggestion
 from app.db.models.gpa_record import GpaRecord
 from app.db.models.mock_interview_session import MockInterviewSession
+from app.db.models.speaking_practice_session import SpeakingPracticeSession
 
-__all__ = ["Base", "User", "Memory", "Task", "Goal", "Conversation", "ActivityLog", "Habit", "ChatSession", "SessionDocument", "ResourceLink", "PracticeQuestion", "Suggestion", "GpaRecord", "MockInterviewSession"]
+__all__ = ["Base", "User", "Memory", "Task", "Goal", "Conversation", "ActivityLog", "Habit", "ChatSession", "SessionDocument", "ResourceLink", "PracticeQuestion", "Suggestion", "GpaRecord", "MockInterviewSession", "SpeakingPracticeSession"]
 
 

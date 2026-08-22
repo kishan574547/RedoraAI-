@@ -1,8 +1,13 @@
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 import json
 
+from app.db.session import get_db
+from app.db.models.user import User
+from app.db.models.speaking_practice_session import SpeakingPracticeSession
+from app.core.deps import get_current_user
 from app.agents.base_agent import call_llm, extract_clean_response_text
 from app.core.logging import logger
 
@@ -18,19 +23,31 @@ class SpeakingPracticeRequest(BaseModel):
     conversation_history: Optional[List[Dict[str, Any]]] = []
 
 
+class SaveSpeakingSessionRequest(BaseModel):
+    topic: Optional[str] = "Free Talk"
+    transcript: Optional[List[Dict[str, Any]]] = []
+    duration: Optional[int] = 0
+    language: Optional[str] = "en-US"
+
+
 @router.post("/respond")
 @router.post("/respond/")
-async def api_speaking_practice_respond(req: SpeakingPracticeRequest):
+async def api_speaking_practice_respond(
+    req: SpeakingPracticeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Dedicated endpoint for Redora Speak (English & Multilingual Speaking Practice).
-    Receives user spoken text, contacts Gemini/OpenRouter LLM, and returns { ai_response, feedback_note }.
+    Receives user spoken text, contacts LLM, and returns { ai_response, feedback_note }.
+    Authenticated per current_user.
     """
     user_input = (req.user_text or req.user_speech or req.message or "").strip()
     if not user_input:
         logger.warning("[SpeakingPractice API] Empty user input provided.")
         raise HTTPException(status_code=400, detail="User input text cannot be empty.")
 
-    logger.info(f"[SpeakingPractice API] Received request for topic '{req.topic}' (lang='{req.language}'): '{user_input}'")
+    logger.info(f"[SpeakingPractice API] User {current_user.id} requested topic '{req.topic}' (lang='{req.language}'): '{user_input}'")
 
     lang_map = {
         'te-IN': 'Telugu',
@@ -109,3 +126,101 @@ Do NOT include any extra formatting or text outside the JSON.
             status_code=500,
             detail=f"Speaking agent failure: {str(e)}"
         )
+
+
+@router.post("/sessions")
+@router.post("/sessions/")
+async def save_speaking_practice_session(
+    req: SaveSpeakingSessionRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Save a completed speaking practice session for the current user.
+    """
+    session = SpeakingPracticeSession(
+        user_id=current_user.id,
+        topic=req.topic or "Free Talk",
+        transcript=req.transcript or [],
+        duration=req.duration or 0,
+        language=req.language or "en-US"
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    logger.info(f"[SpeakingPractice API] Saved practice session {session.id} for user {current_user.id}")
+    return {
+        "id": session.id,
+        "topic": session.topic,
+        "duration": session.duration,
+        "language": session.language,
+        "created_at": session.created_at,
+        "message": "Speaking practice session saved successfully."
+    }
+
+
+@router.get("/sessions")
+@router.get("/sessions/")
+@router.get("/history")
+@router.get("/history/")
+async def get_speaking_practice_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    List past speaking practice sessions for current user, ordered by date descending.
+    """
+    sessions = (
+        db.query(SpeakingPracticeSession)
+        .filter(SpeakingPracticeSession.user_id == current_user.id)
+        .order_by(SpeakingPracticeSession.created_at.desc())
+        .all()
+    )
+    return {
+        "sessions": [
+            {
+                "id": s.id,
+                "topic": s.topic,
+                "duration": s.duration,
+                "language": s.language,
+                "transcript": s.transcript or [],
+                "exchanges_count": len([m for m in (s.transcript or []) if isinstance(m, dict) and m.get("role") == "user"]),
+                "created_at": s.created_at
+            }
+            for s in sessions
+        ]
+    }
+
+
+@router.get("/sessions/{session_id}")
+@router.get("/sessions/{session_id}/")
+async def get_speaking_practice_detail(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Fetch full detail of a specific practice session for current user.
+    """
+    session = (
+        db.query(SpeakingPracticeSession)
+        .filter(
+            SpeakingPracticeSession.id == session_id,
+            SpeakingPracticeSession.user_id == current_user.id
+        )
+        .first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Speaking practice session not found."
+        )
+
+    return {
+        "id": session.id,
+        "topic": session.topic,
+        "duration": session.duration,
+        "language": session.language,
+        "transcript": session.transcript or [],
+        "created_at": session.created_at
+    }

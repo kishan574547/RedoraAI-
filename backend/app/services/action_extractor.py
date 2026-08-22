@@ -38,11 +38,12 @@ class ActionExtractor:
         """
         extracted_data = None
 
-        if agent_result and (agent_result.get("tasks") or agent_result.get("goals") or agent_result.get("resources") or agent_result.get("practice_questions") or agent_result.get("suggestions")):
+        if agent_result and (agent_result.get("tasks") or agent_result.get("goals") or agent_result.get("resources") or agent_result.get("practice_questions") or agent_result.get("suggestions") or agent_result.get("habits")):
             extracted_data = {
                 "has_actions": True,
                 "goals": agent_result.get("goals", []),
                 "tasks": agent_result.get("tasks", []),
+                "habits": agent_result.get("habits", []),
                 "resources": agent_result.get("resources", []),
                 "practice_questions": agent_result.get("practice_questions", []),
                 "suggestions": agent_result.get("suggestions", [])
@@ -292,10 +293,46 @@ Return ONLY valid JSON matching this format (no markdown formatting or extra tex
 
             created_tasks.append({"id": task.id, "title": task.title})
 
+        # Save Habits (with deduplication)
+        created_habits = []
+        for h_data in extracted_data.get("habits", []):
+            h_name = (h_data.get("name") or h_data.get("title") or "").strip()
+            if not h_name or len(h_name) < 3:
+                continue
+
+            existing_h = db.query(Habit).filter(
+                Habit.user_id == user_id,
+                func.lower(Habit.name) == h_name[:200].lower()
+            ).first()
+            if not existing_h:
+                h_freq = h_data.get("frequency") or "daily"
+                new_habit = Habit(
+                    user_id=user_id,
+                    name=h_name[:200],
+                    frequency=h_freq
+                )
+                db.add(new_habit)
+                db.commit()
+                db.refresh(new_habit)
+
+                act_h = ActivityLog(
+                    user_id=user_id,
+                    agent_name=agent_used,
+                    action_description=f"{agent_used.capitalize()} Agent created wellness habit: '{new_habit.name}'",
+                    related_conversation_id=conversation_id
+                )
+                db.add(act_h)
+                db.commit()
+
+                created_habits.append({"id": new_habit.id, "name": new_habit.name})
+            else:
+                created_habits.append({"id": existing_h.id, "name": existing_h.name})
+
         return {
             "tasks_created": created_tasks,
             "goals_created": created_goals,
-            "suggestions_created": created_suggestions
+            "suggestions_created": created_suggestions,
+            "habits_created": created_habits
         }
 
 

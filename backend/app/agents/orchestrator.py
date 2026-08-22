@@ -7,6 +7,7 @@ from app.agents.coding_agent import CodingAgent
 from app.agents.productivity_agent import ProductivityAgent
 from app.agents.finance_agent import finance_agent
 from app.agents.speaking_agent import speaking_agent
+from app.agents.health_agent import health_agent
 from app.core.logging import logger
 
 
@@ -19,11 +20,14 @@ class Orchestrator:
             "coding": CodingAgent(),
             "productivity": ProductivityAgent(),
             "finance": finance_agent,
-            "speaking": speaking_agent
+            "speaking": speaking_agent,
+            "health": health_agent
         }
 
     def detect_multi_agent_scenario(self, user_input: str) -> Optional[List[str]]:
         lower_input = user_input.lower()
+        if any(w in lower_input for w in ["sleep", "sleeping", "stressed", "stress", "fitness", "workout", "gym", "hydration", "health", "mindfulness", "wellbeing", "anxiety", "exhausted"]):
+            return ["health", "productivity"]
         if any(w in lower_input for w in ["spent", "budget", "expense", "cost", "money", "savings", "financial"]):
             return ["finance", "productivity"]
         if any(w in lower_input for w in ["interview", "career", "job search", "promotion", "resume", "hiring"]):
@@ -33,7 +37,11 @@ class Orchestrator:
         if any(w in lower_input for w in ["build an app", "project", "coding roadmap", "fullstack", "software"]):
             return ["coding", "study", "productivity"]
         if any(w in lower_input for w in ["get fit", "habit", "routine", "goal for next month", "yearly goal"]):
-            return ["career", "productivity"]
+            if any(w in lower_input for w in ["study", "learn", "exam", "reading", "dsa"]):
+                return ["study", "productivity"]
+            if any(w in lower_input for w in ["sleep", "workout", "water", "stress", "meditation", "gym", "health"]):
+                return ["health", "productivity"]
+            return None  # Route to single ProductivityAgent without CareerAgent coupling
         if any(w in lower_input for w in ["speak", "speech", "pronunciation", "talk", "verbal"]):
             return ["speaking", "productivity"]
         return None
@@ -51,6 +59,7 @@ class Orchestrator:
 - productivity: time management, task management, productivity tips
 - finance: expenses, budget, savings, financial management
 - speaking: speech coaching, pronunciation, spoken English, oral communication
+- health: physical fitness, sleep, hydration, stress management, mental health, study-life balance
 
 Respond with ONLY the category name (lowercase, no punctuation)."""
 
@@ -232,6 +241,7 @@ Respond with ONLY the category name (lowercase, no punctuation)."""
 
         all_tasks = []
         all_goals = []
+        all_habits = []
         all_resources = []
         all_practice_questions = []
         all_suggestions = []
@@ -255,6 +265,7 @@ Respond with ONLY the category name (lowercase, no punctuation)."""
 
             all_tasks.extend(res.get("tasks", []))
             all_goals.extend(res.get("goals", []))
+            all_habits.extend(res.get("habits", []))
             all_resources.extend(res.get("resources", []))
             all_practice_questions.extend(res.get("practice_questions", []))
             all_suggestions.extend(res.get("suggestions", []))
@@ -271,6 +282,7 @@ Respond with ONLY the category name (lowercase, no punctuation)."""
             "agent_chain": readable_chain,
             "tasks": all_tasks,
             "goals": all_goals,
+            "habits": all_habits,
             "resources": all_resources,
             "practice_questions": all_practice_questions,
             "suggestions": all_suggestions
@@ -307,6 +319,7 @@ Respond with ONLY the category name (lowercase, no punctuation)."""
                     "agent_chain": [f"{agent_used.capitalize()} Agent"],
                     "tasks": [],
                     "goals": [],
+                    "habits": [],
                     "resources": [],
                     "practice_questions": [],
                     "suggestions": []
@@ -328,6 +341,7 @@ Respond with ONLY the category name (lowercase, no punctuation)."""
             "agent_chain": [f"{intent.capitalize()} Agent"],
             "tasks": res.get("tasks", []),
             "goals": res.get("goals", []),
+            "habits": res.get("habits", []),
             "resources": res.get("resources", []),
             "practice_questions": res.get("practice_questions", []),
             "suggestions": res.get("suggestions", [])

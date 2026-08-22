@@ -9,30 +9,47 @@ from app.core.security import verify_token
 security = HTTPBearer(auto_error=False)
 
 
+from jose import jwt
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
+    if not credentials or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials: Missing authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+    # Strictly require cryptographic signature verification via verify_token
+    payload = verify_token(token)
+
+    if not payload or not (payload.get("sub") or payload.get("email")):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials: Token signature is invalid or expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     user = None
+    user_id_val = payload.get("sub")
+    if user_id_val:
+        try:
+            user = db.query(User).filter(User.id == int(user_id_val)).first()
+        except (ValueError, TypeError):
+            pass
 
-    if credentials:
-        token = credentials.credentials
-        payload = verify_token(token)
-        if payload and payload.get("sub"):
-            user_id = payload.get("sub")
-            try:
-                user = db.query(User).filter(User.id == int(user_id)).first()
-            except ValueError:
-                user = db.query(User).filter(User.email == payload.get("email")).first()
+    if user is None and payload.get("email"):
+        user = db.query(User).filter(User.email == payload.get("email")).first()
 
-    # Fallback for Supabase tokens or dev mode: get first user or create guest user
     if user is None:
-        user = db.query(User).first()
-        if user is None:
-            user = User(email="user@example.com", hashed_password="defaultpassword")
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User associated with token not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user
 

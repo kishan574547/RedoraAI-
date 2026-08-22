@@ -32,7 +32,10 @@ class GpaSaveRequest(BaseModel):
 
 
 @router.post("/calculate")
-async def api_calculate_gpa(req: GpaCalculateRequest):
+async def api_calculate_gpa(
+    req: GpaCalculateRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Compute weighted GPA without saving to database."""
     try:
         subjects_dict = [s.dict() for s in req.subjects]

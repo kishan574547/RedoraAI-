@@ -1,7 +1,9 @@
 from typing import List, Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Response
 from fastapi.responses import JSONResponse
 
+from app.db.models.user import User
+from app.core.deps import get_current_user
 from app.services.pdf_tools import (
     merge_pdfs,
     split_pdf,
@@ -17,7 +19,10 @@ MAX_FILE_SIZE_MB = 20
 
 
 @router.post("/merge")
-async def api_merge_pdfs(files: List[UploadFile] = File(...)):
+async def api_merge_pdfs(
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user)
+):
     """Merge multiple PDF files into one."""
     if len(files) < 2:
         raise HTTPException(status_code=400, detail="Please upload at least 2 PDF files to merge.")
@@ -45,7 +50,8 @@ async def api_merge_pdfs(files: List[UploadFile] = File(...)):
 @router.post("/split")
 async def api_split_pdf(
     file: UploadFile = File(...),
-    page_range: Optional[str] = Form(default="")
+    page_range: Optional[str] = Form(default=""),
+    current_user: User = Depends(get_current_user)
 ):
     """Split PDF into selected pages or zip of individual pages."""
     try:
@@ -74,7 +80,10 @@ async def api_split_pdf(
 
 
 @router.post("/compress")
-async def api_compress_pdf(file: UploadFile = File(...)):
+async def api_compress_pdf(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
     """Compress PDF file size."""
     try:
         content = await file.read()
@@ -94,7 +103,10 @@ async def api_compress_pdf(file: UploadFile = File(...)):
 
 
 @router.post("/to-word")
-async def api_pdf_to_word(file: UploadFile = File(...)):
+async def api_pdf_to_word(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
     """Convert PDF to Word (.docx) format."""
     try:
         content = await file.read()
@@ -115,7 +127,10 @@ async def api_pdf_to_word(file: UploadFile = File(...)):
 
 
 @router.post("/extract-text")
-async def api_extract_text(file: UploadFile = File(...)):
+async def api_extract_text(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
     """Extract text page by page from PDF."""
     try:
         content = await file.read()

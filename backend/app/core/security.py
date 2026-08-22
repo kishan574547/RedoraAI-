@@ -25,19 +25,30 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -> str:
+    secret_key = settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET_KEY
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
 
 
 def verify_token(token: str) -> Optional[Dict]:
+    """
+    Cryptographically verifies JWT signature using the single unified SUPABASE_JWT_SECRET.
+    Returns decoded payload ONLY if cryptographic signature verification succeeds.
+    """
+    secret_key = settings.SUPABASE_JWT_SECRET or settings.JWT_SECRET_KEY
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            secret_key,
+            algorithms=["HS256", "RS256"],
+            options={"verify_aud": False}
+        )
         return payload
     except JWTError:
         return None

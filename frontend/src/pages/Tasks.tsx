@@ -113,13 +113,13 @@ function Tasks() {
   const getStatusColor = (status: Task['status']) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800 border-green-200'
+        return 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
+        return 'bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800'
       case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-200'
+        return 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800'
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200'
+        return 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700'
     }
   }
 
@@ -235,8 +235,8 @@ function Tasks() {
                       }}
                       className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
                         task.calendar_synced === "true"
-                          ? "bg-blue-100 text-blue-800 border-blue-300"
-                          : "bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 border-slate-200"
+                          ? "bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/60 hover:text-blue-700 dark:hover:text-blue-300 border-slate-200 dark:border-slate-700"
                       }`}
                       title="Schedule event into your Google Calendar with explicit approval"
                     >
@@ -246,16 +246,16 @@ function Tasks() {
                     <select
                       value={task.status}
                       onChange={(e) => handleUpdateStatus(task.id, e.target.value as Task['status'])}
-                      className={'px-3 py-1 rounded-full text-xs font-semibold border ' + getStatusColor(task.status)}
+                      className={'px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer focus:outline-none ' + getStatusColor(task.status)}
                     >
-                      <option value='pending'>Pending</option>
-                      <option value='in_progress'>In Progress</option>
-                      <option value='completed'>Completed</option>
-                      <option value='cancelled'>Cancelled</option>
+                      <option value='pending' className='bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'>Pending</option>
+                      <option value='in_progress' className='bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'>In Progress</option>
+                      <option value='completed' className='bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'>Completed</option>
+                      <option value='cancelled' className='bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'>Cancelled</option>
                     </select>
                     <button
                       onClick={() => handleDeleteTask(task.id)}
-                      className='text-slate-400 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-slate-100'
+                      className='text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800'
                       title='Delete task'
                     >
                       <Trash2 className='w-4 h-4' />

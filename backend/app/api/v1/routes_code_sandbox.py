@@ -41,7 +41,9 @@ def check_user_rate_limit(user_id: int):
 
 
 @router.get("/runtimes")
-async def api_get_runtimes():
+async def api_get_runtimes(
+    current_user: User = Depends(get_current_user)
+):
     """Fetch list of supported programming languages and versions."""
     try:
         runtimes = await get_supported_runtimes()
@@ -53,9 +55,11 @@ async def api_get_runtimes():
 
 @router.post("/run")
 async def api_run_code(
-    req: CodeExecutionRequest
+    req: CodeExecutionRequest,
+    current_user: User = Depends(get_current_user)
 ):
-    """Execute code in sandbox without requiring user login context."""
+    """Execute code in sandbox for authenticated user with per-user rate limiting."""
+    check_user_rate_limit(current_user.id)
 
     try:
         result = await run_code(

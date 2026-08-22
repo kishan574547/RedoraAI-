@@ -159,6 +159,13 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
+  const activeSessionIdRef = useRef<number | null>(activeSessionId)
+  useEffect(() => {
+    activeSessionIdRef.current = activeSessionId
+  }, [activeSessionId])
+
+  const autoAnsweringSessionsRef = useRef<Set<number>>(new Set())
+
   // Fetch all chat sessions
   const fetchSessions = async (selectFirst: boolean = false) => {
     try {
@@ -174,12 +181,75 @@ export default function Chat() {
     }
   }
 
+  // Auto-answer unanswered user message in session
+  const triggerAutoAnswer = async (sessionId: number, userContent: string) => {
+    if (autoAnsweringSessionsRef.current.has(sessionId) || isLoading) return
+    autoAnsweringSessionsRef.current.add(sessionId)
+
+    setIsLoading(true)
+    try {
+      const response = await api.post('/chat/message', {
+        session_id: sessionId,
+        message: userContent,
+        retry_last: true
+      })
+
+      const { response: assistantResponse, agent_used, tasks_created, goals_created, suggestions_created } = response.data
+
+      const assistantMessage: Message = {
+        id: Date.now(),
+        role: 'assistant',
+        content: assistantResponse,
+        agent_used,
+        tasks_created,
+        goals_created,
+        suggestions_created,
+        created_at: new Date().toISOString(),
+        session_id: sessionId
+      }
+
+      if (activeSessionIdRef.current === sessionId) {
+        setMessages((prev) => {
+          const hasAssistant = prev.some((m) => m.role === 'assistant' && m.content === assistantResponse)
+          if (hasAssistant) return prev
+          return [...prev, assistantMessage]
+        })
+      }
+
+      window.dispatchEvent(new Event('lifeos_data_updated'))
+      await fetchSessions(false)
+      if (activeSessionIdRef.current === sessionId) {
+        await fetchSessionDocuments(sessionId)
+      }
+    } catch (error: any) {
+      console.error('Failed to auto-answer unanswered message:', error)
+      const rawDetail = error.response?.data?.detail
+      let detailMessage = 'Failed to process message. Please try again.'
+      if (typeof rawDetail === 'string') {
+        detailMessage = rawDetail
+      } else if (rawDetail && typeof rawDetail === 'object') {
+        detailMessage = rawDetail.msg || JSON.stringify(rawDetail)
+      }
+      setFileError(detailMessage)
+    } finally {
+      setIsLoading(false)
+      autoAnsweringSessionsRef.current.delete(sessionId)
+    }
+  }
+
   // Fetch messages for active session
   const fetchSessionMessages = async (sessionId: number) => {
     setIsLoadingHistory(true)
     try {
       const response = await api.get(`/chat-sessions/${sessionId}/messages`)
-      setMessages(response.data || [])
+      const fetchedMsgs: Message[] = response.data || []
+      setMessages(fetchedMsgs)
+
+      // Auto-answer if the last message in this session is an unanswered user prompt
+      const lastMsg = fetchedMsgs.length > 0 ? fetchedMsgs[fetchedMsgs.length - 1] : null
+      if (lastMsg && lastMsg.role === 'user') {
+        triggerAutoAnswer(sessionId, lastMsg.content)
+      }
     } catch (error) {
       console.error('Failed to fetch session messages:', error)
       setMessages([])
@@ -198,7 +268,6 @@ export default function Chat() {
 
         if (fetchedSessions.length > 0) {
           setActiveSessionId(fetchedSessions[0].id)
-          await fetchSessionMessages(fetchedSessions[0].id)
         } else {
           setIsLoadingHistory(false)
         }
@@ -360,6 +429,7 @@ export default function Chat() {
     e.preventDefault()
     if ((!input.trim() && !selectedFile) || isLoading) return
 
+    const targetSessionId = activeSessionId
     const userMessageText = input.trim() || (selectedFile ? `Analyzing attached document: ${selectedFile.name}` : '')
     const fileToUpload = selectedFile
     setInput('')
@@ -373,7 +443,7 @@ export default function Chat() {
       role: 'user',
       content: fileToUpload ? `${userMessageText}\n📎 [Attached: ${fileToUpload.name}]` : userMessageText,
       created_at: new Date().toISOString(),
-      session_id: activeSessionId || undefined
+      session_id: targetSessionId || undefined
     }
     setMessages((prev) => [...prev, tempUserMessage])
 
@@ -382,8 +452,8 @@ export default function Chat() {
       if (userMessageText) {
         formData.append('message', userMessageText)
       }
-      if (activeSessionId) {
-        formData.append('session_id', String(activeSessionId))
+      if (targetSessionId) {
+        formData.append('session_id', String(targetSessionId))
       }
       if (fileToUpload) {
         formData.append('file', fileToUpload)
@@ -402,14 +472,16 @@ export default function Chat() {
         goals_created,
         suggestions_created,
         created_at: new Date().toISOString(),
-        session_id: activeSessionId || undefined
+        session_id: targetSessionId || undefined
       }
 
-      setMessages((prev) => [...prev, assistantMessage])
+      if (activeSessionIdRef.current === targetSessionId || activeSessionIdRef.current === null) {
+        setMessages((prev) => [...prev, assistantMessage])
+      }
       window.dispatchEvent(new Event('lifeos_data_updated'))
       await fetchSessions(false)
-      if (activeSessionId) {
-        await fetchSessionDocuments(activeSessionId)
+      if (targetSessionId) {
+        await fetchSessionDocuments(targetSessionId)
       }
     } catch (error: any) {
       console.error('Failed to send message:', error)

@@ -113,6 +113,40 @@ export default function SpeakingPractice() {
   const [textInput, setTextInput] = useState<string>('')
   const [showSummaryModal, setShowSummaryModal] = useState<boolean>(false)
 
+  // History states
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false)
+  const [pastSessions, setPastSessions] = useState<any[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false)
+  const [selectedPastSession, setSelectedPastSession] = useState<any | null>(null)
+
+  const fetchPastSessions = async () => {
+    setIsLoadingHistory(true)
+    try {
+      const res = await api.get('/tools/speaking-practice/sessions')
+      setPastSessions(res.data?.sessions || [])
+    } catch (err) {
+      console.error('Failed to fetch speaking practice history:', err)
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }
+
+  const saveSessionToBackend = async () => {
+    try {
+      const topicObj = TOPICS.find((t) => t.id === selectedTopic)
+      const topicName = topicObj ? topicObj.title : 'Free Talk'
+      await api.post('/tools/speaking-practice/sessions', {
+        topic: topicName,
+        transcript: messages,
+        duration: sessionDuration,
+        language: selectedLanguage
+      })
+      addDiagnosticLog('Speaking Practice Session saved to database.')
+    } catch (err) {
+      console.error('Failed to save speaking practice session:', err)
+    }
+  }
+
   // Session Statistics
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now())
   const [sessionDuration, setSessionDuration] = useState<number>(0)
@@ -690,7 +724,7 @@ export default function SpeakingPractice() {
   }
 
   // End Practice Session & Open Summary Modal
-  const handleEndPractice = () => {
+  const handleEndPractice = async () => {
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel()
     }
@@ -701,6 +735,10 @@ export default function SpeakingPractice() {
     stopSpeakingCadence()
     setAssistantState('idle')
     isProcessingRef.current = false
+
+    if (messages.length > 1) {
+      await saveSessionToBackend()
+    }
     setShowSummaryModal(true)
   }
 
@@ -773,6 +811,19 @@ export default function SpeakingPractice() {
         </div>
 
         <div className="flex items-center space-x-2 flex-wrap gap-y-2 self-end sm:self-auto">
+          {/* History Button */}
+          <button
+            onClick={() => {
+              fetchPastSessions()
+              setShowHistoryModal(true)
+            }}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 transition-all flex items-center gap-1.5"
+            title="View Past Speaking Practice Sessions"
+          >
+            <Clock className="w-3.5 h-3.5 text-indigo-500" />
+            <span>History</span>
+          </button>
+
           {/* Language Selector Dropdown */}
           <div className="relative inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
             <Globe className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
@@ -1155,6 +1206,121 @@ export default function SpeakingPractice() {
           </div>
         </div>
       )}
+
+      {/* PRACTICE SESSION HISTORY MODAL */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-6 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-indigo-500/10 text-indigo-500 rounded-2xl">
+                  <Clock className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Speaking Practice History</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Review your past spoken English practice sessions & transcripts</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false)
+                  setSelectedPastSession(null)
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {selectedPastSession ? (
+              /* DETAIL VIEW FOR A SELECTED SESSION */
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                <button
+                  onClick={() => setSelectedPastSession(null)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline mb-2"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to History List
+                </button>
+
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-semibold">
+                    <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded-full">
+                      {selectedPastSession.topic}
+                    </span>
+                    <span className="text-slate-500">
+                      {new Date(selectedPastSession.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-300 pt-1">
+                    <span>⏱️ Duration: {formatTime(selectedPastSession.duration || 0)}</span>
+                    <span>🌐 Language: {selectedPastSession.language || 'en-US'}</span>
+                    <span>💬 {selectedPastSession.transcript?.length || 0} messages</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Full Session Transcript</h4>
+                  {selectedPastSession.transcript && selectedPastSession.transcript.map((msg: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className={`p-3.5 rounded-2xl text-xs space-y-1 ${
+                        msg.role === 'user'
+                          ? 'bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/40 ml-4'
+                          : 'bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 mr-4'
+                      }`}
+                    >
+                      <div className="font-bold text-slate-500 flex justify-between">
+                        <span>{msg.role === 'user' ? 'You' : 'Redora AI Coach'}</span>
+                        <span className="text-[10px] font-normal">{msg.timestamp || ''}</span>
+                      </div>
+                      <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* LIST VIEW OF PAST SESSIONS */
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {isLoadingHistory ? (
+                  <div className="text-center py-12 text-slate-400 text-xs font-medium flex items-center justify-center gap-2">
+                    <Sparkles className="w-4 h-4 animate-spin text-indigo-500" />
+                    Loading session history...
+                  </div>
+                ) : pastSessions.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500 dark:text-slate-400 space-y-2">
+                    <BookOpen className="w-8 h-8 text-slate-400 mx-auto opacity-50" />
+                    <p className="text-sm font-semibold">No past practice sessions found</p>
+                    <p className="text-xs text-slate-400">Complete a speaking practice session to view it saved here!</p>
+                  </div>
+                ) : (
+                  pastSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      onClick={() => setSelectedPastSession(session)}
+                      className="p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/70 rounded-2xl cursor-pointer transition-all space-y-2 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          {session.topic}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {new Date(session.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                        <span>⏱️ {formatTime(session.duration || 0)}</span>
+                        <span>💬 {session.exchanges_count || 0} turns</span>
+                        <span>🌐 {session.language || 'en-US'}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Diagnostic Logs & Status Overlay Panel */}
       {showDiagnosticPanel && (
         <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-slate-900 text-slate-100 shadow-2xl z-50 border-l border-slate-800 flex flex-col font-sans transition-all">

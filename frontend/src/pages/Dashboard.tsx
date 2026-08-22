@@ -217,20 +217,57 @@ function Dashboard() {
     })
   }
 
+  const handleToggleTaskStatus = async (taskId: number, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'completed' ? 'pending' : 'completed'
+      await api.put(`/tasks/${taskId}`, { status: newStatus })
+      fetchDashboardData()
+      window.dispatchEvent(new Event('lifeos_data_updated'))
+    } catch (err) {
+      console.error('Failed to toggle task status from dashboard:', err)
+    }
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('access_token')
     navigate('/login')
   }
 
+  // Pending tasks queue for auto-advancing next task focus
+  const pendingTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress')
+  const sortedPendingTasks = [...pendingTasks].sort((a, b) => {
+    if (a.due_date && b.due_date) {
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+    }
+    if (a.due_date) return -1
+    if (b.due_date) return 1
+    return a.id - b.id
+  })
+  const currentNextTask = sortedPendingTasks[0] || null
+
   const filteredTasks = tasks.filter((task) => {
     if (activeTaskTab === 'all') return true
-    if (!task.due_date) return activeTaskTab === 'week'
+    if (!task.due_date) return activeTaskTab === 'week' || activeTaskTab === 'today'
     const due = new Date(task.due_date)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const isToday = due.toDateString() === today.toDateString()
     if (activeTaskTab === 'today') return isToday
     return true
+  })
+
+  // Sort Tasks Schedule items so pending tasks appear first (ordered by due date / creation), followed by completed items
+  const sortedFilteredTasks = [...filteredTasks].sort((a, b) => {
+    const aPending = a.status === 'pending' || a.status === 'in_progress' ? 0 : 1
+    const bPending = b.status === 'pending' || b.status === 'in_progress' ? 0 : 1
+    if (aPending !== bPending) return aPending - bPending
+
+    if (a.due_date && b.due_date) {
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+    }
+    if (a.due_date) return -1
+    if (b.due_date) return 1
+    return a.id - b.id
   })
 
   if (isLoading) {
@@ -311,7 +348,7 @@ function Dashboard() {
       </header>
 
       {/* Main Container */}
-      <main className='max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6 w-full max-w-full overflow-x-hidden'>
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6 w-full max-w-full overflow-x-hidden pb-28'>
 
         {/* 1. MERGED HERO CARD (State of Your Life + Daily Digest combined) */}
         <LifeStateCard
@@ -323,9 +360,85 @@ function Dashboard() {
           topPriorityGoal={goals[0]?.title || ''}
           dueTasksCount={tasks.filter((t) => t.due_date && new Date(t.due_date).toDateString() === new Date().toDateString()).length}
           topSuggestion={dashboardSuggestions[0]?.title || ''}
+          currentNextTaskTitle={currentNextTask?.title || ''}
+          pendingTasksCount={pendingTasks.length}
         />
 
-        {/* 2. TASKS SCHEDULE & ACTIVE GOALS (Side by Side) */}
+        {/* 2. PROMINENT AI AUTOMATION FEED (Moved right after Hero for instant proof of AI work) */}
+        <div className='bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border-2 border-indigo-500/30 dark:border-indigo-500/40 shadow-md space-y-4 transition-colors duration-200'>
+          <div className='flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3.5'>
+            <div className='flex items-center gap-2.5'>
+              <div className='p-1.5 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl text-indigo-600 dark:text-indigo-400'>
+                <Activity className='w-4 h-4' />
+              </div>
+              <div>
+                <h2 className='text-base font-serif font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2'>
+                  <span>AI Automation Feed</span>
+                  <span className='text-[10px] uppercase font-sans tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-extrabold'>
+                    ⚡ AI Active
+                  </span>
+                </h2>
+                <p className='text-xs text-slate-500 dark:text-slate-400 font-sans'>
+                  Real-time actions executed by Redora AI agents for your goals
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/activity')}
+              className='text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 shrink-0'
+            >
+              <span>Full Log</span>
+              <ExternalLink className='w-3 h-3' />
+            </button>
+          </div>
+
+          <div className='space-y-3'>
+            {activityGroups.length === 0 ? (
+              <div className='text-center py-6 text-slate-400 dark:text-slate-500 text-xs'>No recent agent batch activity.</div>
+            ) : (
+              activityGroups.slice(0, 3).map((group) => {
+                const isExpanded = expandedGroupIds.has(group.id)
+                return (
+                  <div key={group.id} className='bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden text-xs transition-all'>
+                    <div
+                      onClick={() => toggleGroupExpand(group.id)}
+                      className='p-3.5 flex items-center justify-between cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors'
+                    >
+                      <div className='flex items-center gap-3 min-w-0'>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${group.badgeColor}`}>
+                          {group.agentName}
+                        </span>
+                        <span className='font-semibold text-slate-800 dark:text-slate-200 truncate'>{group.actionSummary}</span>
+                      </div>
+                      <div className='flex items-center gap-2 text-slate-400 dark:text-slate-500 shrink-0'>
+                        <span className='text-[11px]'>{group.timeAgo}</span>
+                        {group.items.length > 1 && (
+                          <button className='p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'>
+                            {isExpanded ? <ChevronUp className='w-3.5 h-3.5' /> : <ChevronDown className='w-3.5 h-3.5' />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Expandable List underneath for multi-action batches */}
+                    {isExpanded && group.items.length > 1 && (
+                      <div className='px-4 pb-3 pt-1 border-t border-slate-200/50 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 space-y-1 text-slate-600 dark:text-slate-400'>
+                        {group.items.map((item, idx) => (
+                          <div key={idx} className='flex items-center gap-2 text-[11px] py-0.5'>
+                            <span className='w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0' />
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* 3. TASKS SCHEDULE & ACTIVE GOALS (Side by Side) */}
         <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
           {/* Tasks Schedule */}
           <div className='bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col transition-colors duration-200'>
@@ -357,13 +470,25 @@ function Dashboard() {
             </div>
 
             <div className='flex-1 overflow-y-auto space-y-2 max-h-[300px] pr-1'>
-              {filteredTasks.length === 0 ? (
-                <div className='text-center py-8 text-slate-400 text-xs'>No tasks for this filter.</div>
+              {sortedFilteredTasks.length === 0 || (activeTaskTab !== 'all' && sortedFilteredTasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length === 0) ? (
+                <div className='text-center py-8 px-4 bg-slate-50/60 dark:bg-slate-950/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2 my-auto'>
+                  <CheckCircle2 className='w-7 h-7 text-emerald-500 mx-auto' />
+                  <h4 className='font-serif font-bold text-sm text-slate-900 dark:text-slate-100'>All caught up! 🎉</h4>
+                  <p className='text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto font-sans leading-relaxed'>
+                    No pending tasks remaining. Add a new task or ask Redora AI to generate action items!
+                  </p>
+                </div>
               ) : (
-                filteredTasks.map((task) => (
+                sortedFilteredTasks.map((task) => (
                   <div key={task.id} className='p-3 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 rounded-xl border border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs transition-colors'>
                     <div className='flex items-center gap-2.5 min-w-0'>
-                      <CheckCircle2 className={`w-4 h-4 ${task.status === 'completed' ? 'text-emerald-500' : 'text-slate-300 dark:text-slate-600'}`} />
+                      <button
+                        onClick={() => handleToggleTaskStatus(task.id, task.status)}
+                        className='p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shrink-0'
+                        title={task.status === 'completed' ? 'Mark as pending' : 'Mark as completed'}
+                      >
+                        <CheckCircle2 className={`w-4 h-4 transition-colors ${task.status === 'completed' ? 'text-emerald-500 fill-emerald-500/20' : 'text-slate-300 dark:text-slate-600 hover:text-emerald-500'}`} />
+                      </button>
                       <span className={`truncate font-medium ${task.status === 'completed' ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
                         {task.title}
                       </span>
@@ -432,114 +557,52 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* 3. SUGGESTED FOR YOU PANEL (Collapsed to 2, expandable) */}
+        {/* 4. SUGGESTED FOR YOU PANEL (Collapsed to 2, expandable) */}
         {dashboardSuggestions.length > 0 && (
           <div className='bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm transition-colors duration-200'>
             <SuggestionsList suggestions={dashboardSuggestions} title="Suggested for You (Agent Insights)" initialLimit={2} />
           </div>
         )}
 
-        {/* REDESIGNED CONSOLIDATED ACTIVITY FEED */}
-        <div className='bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 transition-colors duration-200'>
-          <div className='flex items-center justify-between border-b border-slate-100 pb-3'>
-            <div className='flex items-center gap-2'>
-              <Activity className='w-4 h-4 text-indigo-600' />
-              <h2 className='text-base font-serif font-bold text-slate-900'>Recent AI Activity Batches</h2>
-            </div>
-            <button
-              onClick={() => navigate('/activity')}
-              className='text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1'
-            >
-              <span>View Full Raw Log</span>
-              <ExternalLink className='w-3 h-3' />
-            </button>
-          </div>
-
-          <div className='space-y-3'>
-            {activityGroups.length === 0 ? (
-              <div className='text-center py-6 text-slate-400 text-xs'>No recent agent batch activity.</div>
-            ) : (
-              activityGroups.slice(0, 2).map((group) => {
-                const isExpanded = expandedGroupIds.has(group.id)
-                return (
-                  <div key={group.id} className='bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden text-xs transition-all'>
-                    <div
-                      onClick={() => toggleGroupExpand(group.id)}
-                      className='p-3.5 flex items-center justify-between cursor-pointer hover:bg-slate-100/70 transition-colors'
-                    >
-                      <div className='flex items-center gap-3 min-w-0'>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${group.badgeColor}`}>
-                          {group.agentName}
-                        </span>
-                        <span className='font-semibold text-slate-800 truncate'>{group.actionSummary}</span>
-                      </div>
-                      <div className='flex items-center gap-2 text-slate-400 shrink-0'>
-                        <span className='text-[11px]'>{group.timeAgo}</span>
-                        {group.items.length > 1 && (
-                          <button className='p-1 rounded hover:bg-slate-200 text-slate-600'>
-                            {isExpanded ? <ChevronUp className='w-3.5 h-3.5' /> : <ChevronDown className='w-3.5 h-3.5' />}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Expandable List underneath for multi-action batches */}
-                    {isExpanded && group.items.length > 1 && (
-                      <div className='px-4 pb-3 pt-1 border-t border-slate-200/50 bg-white/60 space-y-1 text-slate-600'>
-                        {group.items.map((item, idx) => (
-                          <div key={idx} className='flex items-center gap-2 text-[11px] py-0.5'>
-                            <span className='w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0' />
-                            <span>{item}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </div>
-
         {/* COLLAPSIBLE SECTION 1: DAILY HABITS & STREAKS */}
-        <div className='bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden'>
+        <div className='bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-200'>
           <button
             onClick={() => setIsHabitsOpen(!isHabitsOpen)}
-            className='w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors'
+            className='w-full p-4 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors'
           >
-            <div className='flex items-center gap-2 text-sm font-serif font-bold text-slate-900'>
+            <div className='flex items-center gap-2 text-sm font-serif font-bold text-slate-900 dark:text-slate-100'>
               <Layers className='w-4 h-4 text-amber-500' />
               <span>Daily Habits & Streaks</span>
             </div>
-            <div className='flex items-center gap-2 text-xs text-slate-400'>
+            <div className='flex items-center gap-2 text-xs text-slate-400 dark:text-slate-400'>
               <span>{isHabitsOpen ? 'Collapse' : 'Expand'}</span>
               {isHabitsOpen ? <ChevronUp className='w-4 h-4' /> : <ChevronDown className='w-4 h-4' />}
             </div>
           </button>
           {isHabitsOpen && (
-            <div className='p-6 pt-0 border-t border-slate-100'>
+            <div className='p-6 pt-0 border-t border-slate-100 dark:border-slate-800'>
               <HabitsSection />
             </div>
           )}
         </div>
 
         {/* COLLAPSIBLE SECTION 2: WHAT LIFEOS REMEMBERS ABOUT YOU (MEMORY) */}
-        <div className='bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden'>
+        <div className='bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-200'>
           <button
             onClick={() => setIsMemoryOpen(!isMemoryOpen)}
-            className='w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors'
+            className='w-full p-4 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors'
           >
-            <div className='flex items-center gap-2 text-sm font-serif font-bold text-slate-900'>
-              <Brain className='w-4 h-4 text-indigo-600' />
+            <div className='flex items-center gap-2 text-sm font-serif font-bold text-slate-900 dark:text-slate-100'>
+              <Brain className='w-4 h-4 text-indigo-600 dark:text-indigo-400' />
               <span>What LifeOS remembers about you</span>
             </div>
-            <div className='flex items-center gap-2 text-xs text-slate-400'>
+            <div className='flex items-center gap-2 text-xs text-slate-400 dark:text-slate-400'>
               <span>{isMemoryOpen ? 'Collapse' : 'Expand'}</span>
               {isMemoryOpen ? <ChevronUp className='w-4 h-4' /> : <ChevronDown className='w-4 h-4' />}
             </div>
           </button>
           {isMemoryOpen && (
-            <div className='p-6 pt-0 border-t border-slate-100'>
+            <div className='p-6 pt-0 border-t border-slate-100 dark:border-slate-800'>
               <MemoryPanel />
             </div>
           )}

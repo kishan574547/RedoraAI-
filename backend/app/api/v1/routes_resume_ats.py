@@ -1,7 +1,9 @@
 from typing import Optional, List
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Response
 from pydantic import BaseModel, Field
 
+from app.db.models.user import User
+from app.core.deps import get_current_user
 from app.services.resume_ats_checker import (
     extract_resume_text,
     rule_based_checks,
@@ -37,7 +39,8 @@ class ExportResumeRequest(BaseModel):
 @router.post("/check")
 async def api_check_resume(
     resume_file: UploadFile = File(...),
-    job_description: Optional[str] = Form(default="")
+    job_description: Optional[str] = Form(default=""),
+    current_user: User = Depends(get_current_user)
 ):
     """Analyze resume for ATS compliance, keyword matching, and AI recommendations."""
     if not resume_file.filename:
@@ -86,7 +89,10 @@ async def api_check_resume(
 
 
 @router.post("/apply-corrections")
-async def api_apply_corrections(req: ApplyCorrectionsRequest):
+async def api_apply_corrections(
+    req: ApplyCorrectionsRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Apply accepted suggestions & missing keywords to rewrite an optimized ATS resume."""
     try:
         optimized_text = await apply_resume_corrections(
@@ -108,7 +114,10 @@ async def api_apply_corrections(req: ApplyCorrectionsRequest):
 
 
 @router.post("/export-docx")
-async def api_export_docx(req: ExportResumeRequest):
+async def api_export_docx(
+    req: ExportResumeRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Export optimized resume text as an ATS-compliant .docx file."""
     try:
         docx_bytes = generate_optimized_docx(req.resume_text)
@@ -123,7 +132,10 @@ async def api_export_docx(req: ExportResumeRequest):
 
 
 @router.post("/export-pdf")
-async def api_export_pdf(req: ExportResumeRequest):
+async def api_export_pdf(
+    req: ExportResumeRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Export optimized resume text as an ATS-compliant .pdf file."""
     try:
         pdf_bytes = generate_optimized_pdf(req.resume_text)
@@ -138,7 +150,10 @@ async def api_export_pdf(req: ExportResumeRequest):
 
 
 @router.post("/custom-suggestion")
-async def api_custom_suggestion(req: CustomSuggestionRequest):
+async def api_custom_suggestion(
+    req: CustomSuggestionRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Generate custom ATS suggestions based on user prompt/instruction."""
     try:
         suggestions = await generate_custom_ai_suggestions(

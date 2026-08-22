@@ -32,7 +32,9 @@ def get_kaggle_auth(custom_username: Optional[str] = None, custom_key: Optional[
     return username, key
 
 @router.get("/status")
-async def check_kaggle_status():
+async def check_kaggle_status(
+    current_user: User = Depends(get_current_user)
+):
     username, key = get_kaggle_auth()
     is_configured = bool(username and key)
     return {
@@ -46,7 +48,8 @@ async def search_datasets(
     search: str = Query("", description="Search term for datasets"),
     page: int = Query(1, ge=1),
     custom_username: Optional[str] = Query(None),
-    custom_key: Optional[str] = Query(None)
+    custom_key: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user)
 ):
     username, key = get_kaggle_auth(custom_username, custom_key)
     if not username or not key:
@@ -73,7 +76,8 @@ async def list_competitions(
     search: str = Query("", description="Search term for competitions"),
     page: int = Query(1, ge=1),
     custom_username: Optional[str] = Query(None),
-    custom_key: Optional[str] = Query(None)
+    custom_key: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user)
 ):
     username, key = get_kaggle_auth(custom_username, custom_key)
     if not username or not key:

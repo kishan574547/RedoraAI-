@@ -6,7 +6,7 @@ from app.db.models import Base
 from app.db.session import engine
 from app.core.logging import logger
 
-app = FastAPI(title="Redora AI API", version="1.0.0")
+app = FastAPI(title="Redora AI API", version="1.0.0", description="Redora AI backend server with strict security isolation.")
 
 app.add_middleware(
     CORSMiddleware,

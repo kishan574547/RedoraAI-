@@ -153,7 +153,7 @@ export default function MemoryPanel({ defaultOpen = true, className = '' }: Memo
             {memories.map((mem) => (
               <div
                 key={mem.id}
-                className='group inline-flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-200/80 shadow-2xs text-xs font-sans text-slate-800 hover:border-indigo-200 transition-all'
+                className='group inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs text-xs font-sans text-slate-800 dark:text-slate-200 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all'
               >
                 <Tag className='w-3.5 h-3.5 text-indigo-500 shrink-0' />
                 <span className='font-medium'>{mem.content}</span>

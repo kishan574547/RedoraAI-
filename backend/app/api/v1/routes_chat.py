@@ -30,6 +30,7 @@ async def send_message(
     session_id: Optional[int] = Form(None),
     attachment_name: Optional[str] = Form(None),
     attachment_content: Optional[str] = Form(None),
+    retry_last: Optional[bool] = Form(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -47,6 +48,7 @@ async def send_message(
                 session_id = body.get("session_id")
                 attachment_name = body.get("attachment_name")
                 attachment_content = body.get("attachment_content")
+                retry_last = body.get("retry_last", False)
             except Exception:
                 pass
 
@@ -114,17 +116,33 @@ async def send_message(
             if not msg_text:
                 msg_text = f"Analyzing uploaded document '{file.filename}'"
 
-        # Save user message to conversation history
-        user_conversation = Conversation(
-            user_id=current_user.id,
-            role="user",
-            content=msg_text if not file else f"{msg_text}\n📎 [Attached File: {file.filename}]",
-            agent_used=None,
-            session_id=session.id
-        )
-        db.add(user_conversation)
-        db.commit()
-        db.refresh(user_conversation)
+        # Check if the last conversation message in this session is an unanswered user message
+        last_conv = db.query(Conversation).filter(
+            Conversation.session_id == session.id,
+            Conversation.user_id == current_user.id
+        ).order_by(Conversation.created_at.desc()).first()
+
+        is_unanswered = (last_conv is not None and last_conv.role == "user")
+
+        if is_unanswered and (retry_last or not msg_text or (msg_text and last_conv.content.startswith(msg_text))):
+            user_conversation = last_conv
+            msg_text = last_conv.content
+            if "\n📎 [Attached File:" in msg_text:
+                clean_part = msg_text.split("\n📎 [Attached File:")[0].strip()
+                if clean_part:
+                    msg_text = clean_part
+        else:
+            # Save user message to conversation history
+            user_conversation = Conversation(
+                user_id=current_user.id,
+                role="user",
+                content=msg_text if not file else f"{msg_text}\n📎 [Attached File: {file.filename}]",
+                agent_used=None,
+                session_id=session.id
+            )
+            db.add(user_conversation)
+            db.commit()
+            db.refresh(user_conversation)
         
         # Get conversation history for context (scoped to session)
         conversation_history = db.query(Conversation).filter(
@@ -263,6 +281,7 @@ async def send_message(
             tasks_created=actions_summary.get("tasks_created", []),
             goals_created=actions_summary.get("goals_created", []),
             suggestions_created=actions_summary.get("suggestions_created", []),
+            habits_created=actions_summary.get("habits_created", []),
             is_multi_agent=result.get("is_multi_agent", False),
             agent_chain=result.get("agent_chain", [])
         )

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     KAGGLE_USERNAME: Optional[str] = None
     KAGGLE_KEY: Optional[str] = None
     JWT_SECRET_KEY: str
+    SUPABASE_JWT_SECRET: Optional[str] = None
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 

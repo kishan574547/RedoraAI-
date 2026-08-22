@@ -50,6 +50,17 @@ async def create_goal(
     db.add(new_goal)
     db.commit()
     db.refresh(new_goal)
+
+    from app.db.models.activity_log import ActivityLog
+    activity = ActivityLog(
+        user_id=current_user.id,
+        agent_name=goal_data.created_by_agent or "User",
+        action_description=f"Created goal: '{new_goal.title}'",
+        related_goal_id=new_goal.id
+    )
+    db.add(activity)
+    db.commit()
+
     return new_goal
 
 
@@ -108,6 +119,15 @@ async def adopt_goal_template(
             answer=pq.answer
         ))
 
+    from app.db.models.activity_log import ActivityLog
+    activity = ActivityLog(
+        user_id=current_user.id,
+        agent_name="User",
+        action_description=f"Adopted goal template: '{template_goal.title}'",
+        related_goal_id=new_goal.id
+    )
+    db.add(activity)
+
     db.commit()
     db.refresh(new_goal)
     return new_goal
@@ -127,6 +147,8 @@ async def update_goal(
             detail="Goal not found or unauthorized"
         )
     
+    status_changed = goal_data.status is not None and goal_data.status != goal.status
+
     if goal_data.title is not None:
         goal.title = goal_data.title
     if goal_data.description is not None:
@@ -137,7 +159,21 @@ async def update_goal(
         goal.target_date = goal_data.target_date
     if goal_data.is_template is not None:
         goal.is_template = goal_data.is_template
-        
+
+    from app.db.models.activity_log import ActivityLog
+    if status_changed:
+        action_desc = f"Updated goal status to {goal.status}: '{goal.title}'"
+    else:
+        action_desc = f"Updated goal: '{goal.title}'"
+    
+    activity = ActivityLog(
+        user_id=current_user.id,
+        agent_name="User",
+        action_description=action_desc,
+        related_goal_id=goal.id
+    )
+    db.add(activity)
+
     db.commit()
     db.refresh(goal)
     return goal
@@ -155,6 +191,14 @@ async def delete_goal(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Goal not found or unauthorized"
         )
+    
+    from app.db.models.activity_log import ActivityLog
+    activity = ActivityLog(
+        user_id=current_user.id,
+        agent_name="User",
+        action_description=f"Deleted goal: '{goal.title}'"
+    )
+    db.add(activity)
     db.delete(goal)
     db.commit()
     return None

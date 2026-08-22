@@ -47,6 +47,17 @@ async def create_task(
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
+
+    from app.db.models.activity_log import ActivityLog
+    activity = ActivityLog(
+        user_id=current_user.id,
+        agent_name=task_data.created_by_agent or "User",
+        action_description=f"Created task: '{new_task.title}'",
+        related_task_id=new_task.id
+    )
+    db.add(activity)
+    db.commit()
+
     return new_task
 
 
@@ -74,6 +85,15 @@ async def sync_task_to_google_calendar(
     import uuid
     task.google_calendar_event_id = f"gcal_{uuid.uuid4().hex[:12]}"
     task.calendar_synced = "true"
+
+    from app.db.models.activity_log import ActivityLog
+    activity = ActivityLog(
+        user_id=current_user.id,
+        agent_name="User",
+        action_description=f"Scheduled event in Google Calendar: '{task.title}'",
+        related_task_id=task.id
+    )
+    db.add(activity)
 
     db.commit()
     db.refresh(task)
@@ -106,6 +126,8 @@ async def update_task(
             detail="Task not found or unauthorized"
         )
     
+    status_changed = task_data.status is not None and task_data.status != task.status
+
     if task_data.title is not None:
         task.title = task_data.title
     if task_data.status is not None:
@@ -116,7 +138,21 @@ async def update_task(
         task.calendar_synced = task_data.calendar_synced
     if task_data.google_calendar_event_id is not None:
         task.google_calendar_event_id = task_data.google_calendar_event_id
-        
+
+    from app.db.models.activity_log import ActivityLog
+    if status_changed:
+        action_desc = f"Completed task: '{task.title}'" if task.status == "completed" else f"Updated task status to {task.status}: '{task.title}'"
+    else:
+        action_desc = f"Updated task: '{task.title}'"
+    
+    activity = ActivityLog(
+        user_id=current_user.id,
+        agent_name="User",
+        action_description=action_desc,
+        related_task_id=task.id
+    )
+    db.add(activity)
+
     db.commit()
     db.refresh(task)
     return task
@@ -134,6 +170,14 @@ async def delete_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found or unauthorized"
         )
+    
+    from app.db.models.activity_log import ActivityLog
+    activity = ActivityLog(
+        user_id=current_user.id,
+        agent_name="User",
+        action_description=f"Deleted task: '{task.title}'"
+    )
+    db.add(activity)
     db.delete(task)
     db.commit()
     return None
