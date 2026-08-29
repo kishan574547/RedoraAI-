@@ -92,3 +92,19 @@ KAGGLE_USERNAME=your_kaggle_username
 KAGGLE_KEY=your_kaggle_api_key
 OPENAI_API_KEY=your_openai_api_key
 ```
+
+### 4. Supabase OTP Registration Setup
+To send 6-digit OTP codes (instead of email links) for new registration verification:
+1. Go to your **Supabase Dashboard** -> **Authentication** -> **Email Templates**.
+2. Select **Confirm Signup**.
+3. Replace the template subject and body with:
+   - **Subject**: `Verify your registration code: {{ .Token }}`
+   - **Body**:
+   ```html
+   <h2>Welcome!</h2>
+   <p>Your 6-digit verification code for completing your registration is:</p>
+   <h1 style="font-size: 32px; letter-spacing: 4px; color: #4F46E5;">{{ .Token }}</h1>
+   <p>Enter this code on the registration verification screen.</p>
+   ```
+4. Save the template. Supabase will now send the 6-digit OTP code `{{ .Token }}` directly to new users upon sign up.
+

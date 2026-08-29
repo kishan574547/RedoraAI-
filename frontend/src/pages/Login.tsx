@@ -235,11 +235,24 @@ export default function Login() {
 
     setLoading(true)
     try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      let { data, error: verifyError } = await supabase.auth.verifyOtp({
         email,
         token: otpCode.trim(),
         type: 'signup',
       })
+
+      // Fallback check: if type 'signup' yields token error, try type 'email'
+      if (verifyError && (verifyError.message?.toLowerCase().includes('invalid') || verifyError.message?.toLowerCase().includes('expired'))) {
+        const fallback = await supabase.auth.verifyOtp({
+          email,
+          token: otpCode.trim(),
+          type: 'email',
+        })
+        if (!fallback.error) {
+          data = fallback.data
+          verifyError = null
+        }
+      }
 
       if (verifyError) {
         setErrorInfo(mapAuthError(verifyError, 'otp'))
@@ -696,33 +709,39 @@ export default function Login() {
           <form onSubmit={handleVerifySignupOtp} className="space-y-4">
             <div className="text-center mb-2">
               <p className="text-sm text-slate-300">
-                We sent a 6-digit code to <span className="font-semibold text-indigo-400">{email}</span>
+                We sent a 6-digit verification code to <span className="font-semibold text-indigo-400">{email}</span>
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                Enter the code below to complete your registration.
               </p>
             </div>
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Verification Code
+                6-Digit OTP Verification Code
               </label>
               <div className="relative">
                 <KeyRound className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   required
+                  placeholder="123456"
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-center text-lg tracking-[0.3em] font-mono focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-center text-xl tracking-[0.4em] font-mono focus:outline-none focus:border-indigo-500 text-white placeholder:text-slate-600 transition-colors"
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || otpCode.length < 6}
               className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50"
             >
-              <span>{loading ? 'Verifying...' : 'Verify Email'}</span>
+              <span>{loading ? 'Verifying Code...' : 'Verify OTP'}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
 
@@ -745,7 +764,7 @@ export default function Login() {
                 className="text-indigo-400 hover:text-indigo-300 disabled:text-slate-600 font-medium transition-colors flex items-center gap-1"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${cooldown > 0 ? 'animate-spin' : ''}`} />
-                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
+                {cooldown > 0 ? `Resend OTP in ${cooldown}s` : 'Resend OTP'}
               </button>
             </div>
           </form>
