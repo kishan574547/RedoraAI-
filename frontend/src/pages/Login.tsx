@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Lock, Mail, User, AlertCircle, CheckCircle2, Eye, EyeOff, KeyRound, RefreshCw, ArrowLeft } from 'lucide-react'
+import { ArrowRight, Lock, Mail, User, AlertCircle, CheckCircle2, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import AiVerificationCard from '../components/auth/AiVerificationCard'
 
 type AuthMode = 'login' | 'signup' | 'verify_signup' | 'forgot_password' | 'verify_recovery' | 'reset_password'
 
@@ -15,7 +16,6 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newConfirmPassword, setNewConfirmPassword] = useState('')
-  const [otpCode, setOtpCode] = useState('')
 
   // Password Visibility toggles
   const [showPassword, setShowPassword] = useState(false)
@@ -38,7 +38,6 @@ export default function Login() {
 
   // Resend cooldown timer & magic link redirect handler
   useEffect(() => {
-    // Listen for auth state changes (e.g. from email link confirmation redirect)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.access_token && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
         localStorage.setItem('access_token', session.access_token)
@@ -56,13 +55,12 @@ export default function Login() {
     }
   }, [cooldown, navigate])
 
-  // Clear input fields & reset password visibility on mode change to prevent stray values
+  // Clear input fields & reset password visibility on mode change
   useEffect(() => {
     setPassword('')
     setConfirmPassword('')
     setNewPassword('')
     setNewConfirmPassword('')
-    setOtpCode('')
     setShowPassword(false)
     setShowConfirmPassword(false)
     setShowNewPassword(false)
@@ -95,7 +93,6 @@ export default function Login() {
     const lowerMsg = typeof rawMsg === 'string' ? rawMsg.toLowerCase().trim() : ''
     const code = (err.code || err.error || '').toString().toLowerCase().trim()
 
-    // 1. LOGIN WITH UNREGISTERED EMAIL / INVALID CREDENTIALS
     if (
       context === 'login' &&
       (code === 'invalid_credentials' ||
@@ -110,7 +107,6 @@ export default function Login() {
       }
     }
 
-    // 2. SIGNUP WITH ALREADY-REGISTERED EMAIL
     if (
       context === 'signup' &&
       (code === 'user_already_exists' ||
@@ -125,7 +121,6 @@ export default function Login() {
       }
     }
 
-    // 3. EMAIL NOT CONFIRMED / UNVERIFIED
     if (lowerMsg.includes('email not confirmed') || lowerMsg.includes('unconfirmed email')) {
       return {
         message: "Your email address hasn't been verified yet. Please enter your verification code or resend a new one.",
@@ -133,7 +128,6 @@ export default function Login() {
       }
     }
 
-    // 4. INVALID / EXPIRED OTP CODE
     if (
       lowerMsg.includes('invalid token') ||
       lowerMsg.includes('token has expired') ||
@@ -146,7 +140,6 @@ export default function Login() {
       }
     }
 
-    // 5. RATE LIMITING / SMTP / TOO MANY REQUESTS
     if (
       lowerMsg.includes('rate limit') ||
       lowerMsg.includes('over_email_send_rate_limit') ||
@@ -158,14 +151,12 @@ export default function Login() {
       }
     }
 
-    // 6. WEAK PASSWORD
     if (lowerMsg.includes('weak password') || lowerMsg.includes('at least 6 characters')) {
       return {
         message: "Password is too weak. Please use at least 6 characters.",
       }
     }
 
-    // Fallback cleanup if error message is blank, JSON, or obscure
     if (!lowerMsg || lowerMsg === '{}' || lowerMsg.startsWith('{')) {
       return { message: 'Authentication failed. Please check your details and try again.' }
     }
@@ -223,29 +214,21 @@ export default function Login() {
     }
   }
 
-  // Verify Signup OTP
-  const handleVerifySignupOtp = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Verify Signup OTP Code handler for AiVerificationCard
+  const handleVerifySignupOtpCode = async (code: string): Promise<boolean> => {
     clearMessages()
-
-    if (otpCode.length < 6) {
-      setErrorInfo({ message: 'Please enter the complete 6-digit code.' })
-      return
-    }
-
     setLoading(true)
     try {
       let { data, error: verifyError } = await supabase.auth.verifyOtp({
         email,
-        token: otpCode.trim(),
+        token: code.trim(),
         type: 'signup',
       })
 
-      // Fallback check: if type 'signup' yields token error, try type 'email'
       if (verifyError && (verifyError.message?.toLowerCase().includes('invalid') || verifyError.message?.toLowerCase().includes('expired'))) {
         const fallback = await supabase.auth.verifyOtp({
           email,
-          token: otpCode.trim(),
+          token: code.trim(),
           type: 'email',
         })
         if (!fallback.error) {
@@ -256,22 +239,26 @@ export default function Login() {
 
       if (verifyError) {
         setErrorInfo(mapAuthError(verifyError, 'otp'))
-        return
+        return false
       }
 
       if (data.session?.access_token) {
         localStorage.setItem('access_token', data.session.access_token)
         sessionStorage.setItem('is_logged_in', 'true')
-        navigate('/')
+        setTimeout(() => {
+          navigate('/')
+        }, 3800)
+        return true
       } else {
-        setMode('login')
-        setSuccessMessage('Email verified successfully! You can now log in.')
-        setPassword('')
-        setConfirmPassword('')
-        setOtpCode('')
+        setTimeout(() => {
+          setMode('login')
+          setSuccessMessage('Email verified successfully! You can now log in.')
+        }, 3800)
+        return true
       }
     } catch (err: any) {
       setErrorInfo(mapAuthError(err, 'otp'))
+      return false
     } finally {
       setLoading(false)
     }
@@ -355,33 +342,30 @@ export default function Login() {
     }
   }
 
-  // Forgot Password Step 2: Verify Recovery OTP
-  const handleVerifyRecoveryOtp = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Verify Recovery OTP Code handler for AiVerificationCard
+  const handleVerifyRecoveryOtpCode = async (code: string): Promise<boolean> => {
     clearMessages()
-
-    if (otpCode.length < 6) {
-      setErrorInfo({ message: 'Please enter the 6-digit code.' })
-      return
-    }
-
     setLoading(true)
     try {
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email,
-        token: otpCode.trim(),
+        token: code.trim(),
         type: 'recovery',
       })
 
       if (verifyError) {
         setErrorInfo(mapAuthError(verifyError, 'otp'))
-        return
+        return false
       }
 
-      setMode('reset_password')
-      setSuccessMessage('Code verified! Set your new password.')
+      setTimeout(() => {
+        setMode('reset_password')
+        setSuccessMessage('Code verified! Set your new password.')
+      }, 3800)
+      return true
     } catch (err: any) {
       setErrorInfo(mapAuthError(err, 'otp'))
+      return false
     } finally {
       setLoading(false)
     }
@@ -435,7 +419,6 @@ export default function Login() {
       setPassword('')
       setNewPassword('')
       setNewConfirmPassword('')
-      setOtpCode('')
     } catch (err: any) {
       setErrorInfo(mapAuthError(err, 'reset'))
     } finally {
@@ -464,498 +447,400 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans text-slate-100">
-      <div className="w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
-        <div className="flex flex-col items-center mb-8 text-center">
-          <img src="/logo.png" alt="Redora AI Logo" className="w-16 h-16 rounded-2xl object-contain bg-slate-900 shadow-xl mb-3 border border-indigo-500/30 ring-4 ring-indigo-500/10" />
-          <h1 className="text-3xl font-serif font-bold tracking-tight text-white">Redora AI</h1>
-          <p className="text-sm text-indigo-400 font-medium mt-1 transition-all">{getHeaderSubtitle()}</p>
-        </div>
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans text-slate-100">
+      {/* Verification Modes: Render AiVerificationCard */}
+      {mode === 'verify_signup' ? (
+        <AiVerificationCard
+          email={email}
+          onVerify={handleVerifySignupOtpCode}
+          onResend={handleResendSignupOtp}
+          cooldown={cooldown}
+          loading={loading}
+          error={errorInfo?.message || null}
+          onBack={() => setMode('signup')}
+          title="Let's verify your number"
+          subtitle={`We've sent a 6-digit code to ${email || 'your email'}. It'll auto-verify once entered.`}
+        />
+      ) : mode === 'verify_recovery' ? (
+        <AiVerificationCard
+          email={email}
+          onVerify={handleVerifyRecoveryOtpCode}
+          onResend={handleResendRecoveryOtp}
+          cooldown={cooldown}
+          loading={loading}
+          error={errorInfo?.message || null}
+          onBack={() => setMode('forgot_password')}
+          title="Security Verification"
+          subtitle={`Enter the 6-digit code sent to ${email || 'your email'}.`}
+        />
+      ) : (
+        /* Original Blue / Slate Auth Card Layout */
+        <div className="w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
+          <div className="flex flex-col items-center mb-8 text-center">
+            <img src="/logo.png" alt="Redora AI Logo" className="w-16 h-16 rounded-2xl object-contain bg-slate-900 shadow-xl mb-3 border border-indigo-500/30 ring-4 ring-indigo-500/10" />
+            <h1 className="text-3xl font-serif font-bold tracking-tight text-white">Redora AI</h1>
+            <p className="text-sm text-indigo-400 font-medium mt-1 transition-all">{getHeaderSubtitle()}</p>
+          </div>
 
-        {errorInfo && (
-          <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-400" />
-              <div className="flex-1 space-y-2">
-                <p className="leading-relaxed font-normal">{errorInfo.message}</p>
+          {errorInfo && (
+            <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-400" />
+                <div className="flex-1 space-y-2">
+                  <p className="leading-relaxed font-normal">{errorInfo.message}</p>
 
-                {errorInfo.actionType === 'unregistered_email' && (
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clearMessages()
-                        setMode('signup')
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline"
-                    >
-                      Create an Account →
-                    </button>
-                  </div>
-                )}
+                  {errorInfo.actionType === 'unregistered_email' && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearMessages()
+                          setMode('signup')
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline"
+                      >
+                        Create an Account →
+                      </button>
+                    </div>
+                  )}
 
-                {errorInfo.actionType === 'already_registered' && (
-                  <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clearMessages()
-                        setMode('login')
-                      }}
-                      className="text-indigo-400 hover:text-indigo-300 underline"
-                    >
-                      Log in to your account
-                    </button>
-                    <span className="text-slate-500">•</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clearMessages()
-                        setMode('forgot_password')
-                      }}
-                      className="text-indigo-400 hover:text-indigo-300 underline"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-                )}
+                  {errorInfo.actionType === 'already_registered' && (
+                    <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearMessages()
+                          setMode('login')
+                        }}
+                        className="text-indigo-400 hover:text-indigo-300 underline"
+                      >
+                        Log in to your account
+                      </button>
+                      <span className="text-slate-500">•</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearMessages()
+                          setMode('forgot_password')
+                        }}
+                        className="text-indigo-400 hover:text-indigo-300 underline"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                  )}
 
-                {errorInfo.actionType === 'verify_email' && (
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clearMessages()
-                        setMode('verify_signup')
-                        handleResendSignupOtp()
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline"
-                    >
-                      Resend verification code
-                    </button>
-                  </div>
-                )}
+                  {errorInfo.actionType === 'verify_email' && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearMessages()
+                          setMode('verify_signup')
+                          handleResendSignupOtp()
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 underline"
+                      >
+                        Resend verification code
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {successMessage && (
-          <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3 text-emerald-400 text-sm">
-            <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* 1. SIGN IN FORM */}
-        {mode === 'login' && (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-              </div>
+          {successMessage && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3 text-emerald-400 text-sm">
+              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{successMessage}</span>
             </div>
+          )}
 
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+          {/* 1. SIGN IN FORM */}
+          {mode === 'login' && (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearMessages()
+                      setMode('forgot_password')
+                    }}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50 mt-2"
+              >
+                <span>{loading ? 'Processing...' : 'Sign In'}</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </form>
+          )}
+
+          {/* 2. CREATE ACCOUNT FORM */}
+          {mode === 'signup' && (
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                   Password
                 </label>
+                <div className="relative">
+                  <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50 mt-2"
+              >
+                <span>{loading ? 'Processing...' : 'Create Account'}</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </form>
+          )}
+
+          {/* 4. FORGOT PASSWORD EMAIL FORM */}
+          {mode === 'forgot_password' && (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="mb-2">
+                <p className="text-sm text-slate-300">
+                  Enter your registered email address and we'll send you a password reset code.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50"
+              >
+                <span>{loading ? 'Sending Code...' : 'Send Reset Code'}</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              <div className="text-center pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     clearMessages()
-                    setMode('forgot_password')
+                    setMode('login')
                   }}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
+                  className="text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1 transition-colors mx-auto"
                 >
-                  Forgot password?
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
                 </button>
               </div>
-              <div className="relative">
-                <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+            </form>
+          )}
+
+          {/* 6. SET NEW PASSWORD FORM */}
+          {mode === 'reset_password' && (
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  New Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50 mt-2"
-            >
-              <span>{loading ? 'Processing...' : 'Sign In'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </form>
-        )}
-
-        {/* 2. CREATE ACCOUNT FORM */}
-        {mode === 'signup' && (
-          <form onSubmit={handleSignUp} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Full Name
-              </label>
-              <div className="relative">
-                <User className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showNewConfirmPassword ? 'text' : 'password'}
+                    required
+                    value={newConfirmPassword}
+                    onChange={(e) => setNewConfirmPassword(e.target.value)}
+                    className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewConfirmPassword(!showNewConfirmPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showNewConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50 mt-2"
-            >
-              <span>{loading ? 'Processing...' : 'Create Account'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </form>
-        )}
-
-        {/* 3. VERIFY SIGNUP OTP SCREEN */}
-        {mode === 'verify_signup' && (
-          <form onSubmit={handleVerifySignupOtp} className="space-y-4">
-            <div className="text-center mb-2">
-              <p className="text-sm text-slate-300">
-                We sent a 6-digit verification code to <span className="font-semibold text-indigo-400">{email}</span>
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                Enter the code below to complete your registration.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                6-Digit OTP Verification Code
-              </label>
-              <div className="relative">
-                <KeyRound className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  required
-                  placeholder="123456"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-center text-xl tracking-[0.4em] font-mono focus:outline-none focus:border-indigo-500 text-white placeholder:text-slate-600 transition-colors"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || otpCode.length < 6}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50"
-            >
-              <span>{loading ? 'Verifying Code...' : 'Verify OTP'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            <div className="flex items-center justify-between text-xs pt-2">
               <button
-                type="button"
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50 mt-2"
+              >
+                <span>{loading ? 'Updating Password...' : 'Save New Password'}</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </form>
+          )}
+
+          {/* Mode Switch Footer */}
+          {(mode === 'login' || mode === 'signup') && (
+            <div className="mt-6 pt-6 border-t border-slate-700/60 text-center">
+              <button
                 onClick={() => {
                   clearMessages()
-                  setMode('signup')
+                  setMode(mode === 'signup' ? 'login' : 'signup')
                 }}
-                className="text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+                className="text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Signup
-              </button>
-
-              <button
-                type="button"
-                disabled={cooldown > 0 || loading}
-                onClick={handleResendSignupOtp}
-                className="text-indigo-400 hover:text-indigo-300 disabled:text-slate-600 font-medium transition-colors flex items-center gap-1"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${cooldown > 0 ? 'animate-spin' : ''}`} />
-                {cooldown > 0 ? `Resend OTP in ${cooldown}s` : 'Resend OTP'}
+                {mode === 'signup'
+                  ? 'Already have an account? Sign In'
+                  : "Don't have an account? Create one"}
               </button>
             </div>
-          </form>
-        )}
-
-        {/* 4. FORGOT PASSWORD EMAIL SCREEN */}
-        {mode === 'forgot_password' && (
-          <form onSubmit={handleForgotPassword} className="space-y-4">
-            <div className="mb-2">
-              <p className="text-sm text-slate-300">
-                Enter your registered email address and we'll send you a password reset code.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50"
-            >
-              <span>{loading ? 'Sending Code...' : 'Send Reset Code'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  clearMessages()
-                  setMode('login')
-                }}
-                className="text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1 transition-colors mx-auto"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* 5. VERIFY RECOVERY OTP SCREEN */}
-        {mode === 'verify_recovery' && (
-          <form onSubmit={handleVerifyRecoveryOtp} className="space-y-4">
-            <div className="text-center mb-2">
-              <p className="text-sm text-slate-300">
-                We sent a 6-digit password reset code to <span className="font-semibold text-indigo-400">{email}</span>
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Reset Code
-              </label>
-              <div className="relative">
-                <KeyRound className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  maxLength={6}
-                  required
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-center text-lg tracking-[0.3em] font-mono focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50"
-            >
-              <span>{loading ? 'Verifying...' : 'Verify Code'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            <div className="flex items-center justify-between text-xs pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  clearMessages()
-                  setMode('forgot_password')
-                }}
-                className="text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
-              </button>
-
-              <button
-                type="button"
-                disabled={cooldown > 0 || loading}
-                onClick={handleResendRecoveryOtp}
-                className="text-indigo-400 hover:text-indigo-300 disabled:text-slate-600 font-medium transition-colors flex items-center gap-1"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${cooldown > 0 ? 'animate-spin' : ''}`} />
-                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* 6. SET NEW PASSWORD SCREEN */}
-        {mode === 'reset_password' && (
-          <form onSubmit={handleUpdatePassword} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                New Password
-              </label>
-              <div className="relative">
-                <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showNewPassword ? 'text' : 'password'}
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Confirm New Password
-              </label>
-              <div className="relative">
-                <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showNewConfirmPassword ? 'text' : 'password'}
-                  required
-                  value={newConfirmPassword}
-                  onChange={(e) => setNewConfirmPassword(e.target.value)}
-                  className="w-full pl-11 pr-11 py-3 bg-slate-900/80 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewConfirmPassword(!showNewConfirmPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  {showNewConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group disabled:opacity-50 mt-2"
-            >
-              <span>{loading ? 'Updating Password...' : 'Save New Password'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </form>
-        )}
-
-        {/* BOTTOM NAV / MODE TOGGLE */}
-        {(mode === 'login' || mode === 'signup') && (
-          <div className="mt-6 pt-6 border-t border-slate-700/60 text-center">
-            <button
-              onClick={() => {
-                clearMessages()
-                setMode(mode === 'signup' ? 'login' : 'signup')
-              }}
-              className="text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
-            >
-              {mode === 'signup'
-                ? 'Already have an account? Sign In'
-                : "Don't have an account? Create one"}
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
