@@ -21,6 +21,7 @@ import {
   Gauge
 } from 'lucide-react'
 import api from '../../lib/api'
+import { useToolSession } from '../../context/ToolSessionContext'
 
 interface QuestionAnswer {
   question_num: number
@@ -64,6 +65,8 @@ const INTERVIEW_TYPE_OPTIONS = [
 ]
 
 export default function MockInterview() {
+  const toolSession = useToolSession()
+
   // Navigation tab: 'new' | 'history'
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new')
 
@@ -102,6 +105,12 @@ export default function MockInterview() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Synchronize active background state
+  useEffect(() => {
+    const isMockActive = isStarting || isSubmittingAnswer || (viewState === 'interview' && Boolean(sessionId))
+    toolSession?.markToolActive('/tools/mock-interview', isMockActive)
+  }, [isStarting, isSubmittingAnswer, viewState, sessionId, toolSession])
 
   // Fetch History on Tab click
   const fetchHistory = async () => {

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '../../lib/api'
+import { useToolSession } from '../../context/ToolSessionContext'
 
 export type AssistantState = 'idle' | 'listening' | 'thinking' | 'speaking'
 export type TopicCategory = 'free' | 'daily' | 'travel' | 'work'
@@ -161,6 +162,12 @@ export default function SpeakingPractice() {
   ])
 
   const [transcript, setTranscript] = useState('')
+
+  const toolSession = useToolSession()
+  useEffect(() => {
+    const isSpeakingActive = assistantState !== 'idle' || isHandsFree || messages.length > 1
+    toolSession?.markToolActive('/tools/speaking', isSpeakingActive)
+  }, [assistantState, isHandsFree, messages.length, toolSession])
 
   // Web Audio API refs
   const audioCtxRef = useRef<AudioContext | null>(null)

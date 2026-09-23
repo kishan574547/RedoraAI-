@@ -116,7 +116,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               {toolNavItems.map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
-                const isRunningInBackground = !isActive && Boolean(toolSession?.visitedRoutes?.has(item.path))
+                const isRunningInBackground = !isActive && Boolean(toolSession?.activeBackgroundTools?.has(item.path))
                 return (
                   <Link
                     key={item.path}
@@ -244,7 +244,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   {toolNavItems.map((item) => {
                     const Icon = item.icon
                     const isActive = location.pathname === item.path
-                    const isRunningInBackground = !isActive && Boolean(toolSession?.visitedRoutes?.has(item.path))
+                    const isRunningInBackground = !isActive && Boolean(toolSession?.activeBackgroundTools?.has(item.path))
                     return (
                       <Link
                         key={item.path}
