@@ -1,31 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Dashboard from './pages/Dashboard'
-import Chat from './pages/Chat'
-import Tasks from './pages/Tasks'
-import Goals from './pages/Goals'
 import Login from './pages/Login'
-import FullActivity from './pages/FullActivity'
-import PdfToolkit from './pages/tools/PdfToolkit'
-import GpaCalculator from './pages/tools/GpaCalculator'
-import CodeSandbox from './pages/tools/CodeSandbox'
-import ResumeAtsChecker from './pages/tools/ResumeAtsChecker'
-import KaggleExplorer from './pages/tools/KaggleExplorer'
-import SpeakingPractice from './pages/tools/SpeakingPractice'
-import MockInterview from './pages/tools/MockInterview'
-import CoverLetterGenerator from './pages/tools/CoverLetterGenerator'
-import LinkedInOptimizer from './pages/tools/LinkedInOptimizer'
-import FlashcardGenerator from './pages/tools/FlashcardGenerator'
-import QuizGenerator from './pages/tools/QuizGenerator'
-import YouTubeSummarizer from './pages/tools/YouTubeSummarizer'
-import Settings from './pages/Settings'
-
-import AppLayout from './components/layout/AppLayout'
-import { QuickWidget } from './components/ui/QuickWidget'
-
+import { PersistentAppShell } from './components/layout/PersistentAppShell'
+import { ToolSessionProvider } from './context/ToolSessionContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
 
-function ProtectedRoute({ children }: { children: JSX.Element }) {
+function ProtectedShell() {
   const [loading, setLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
@@ -92,15 +73,11 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
   }
 
   return (
-    <AppLayout>
-      {children}
-      <QuickWidget />
-    </AppLayout>
+    <ToolSessionProvider>
+      <PersistentAppShell />
+    </ToolSessionProvider>
   )
 }
-
-
-import { ThemeProvider } from './context/ThemeContext'
 
 function App() {
   return (
@@ -108,25 +85,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-          <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-          <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
-          <Route path="/activity" element={<ProtectedRoute><FullActivity /></ProtectedRoute>} />
-          <Route path="/tools/pdf" element={<ProtectedRoute><PdfToolkit /></ProtectedRoute>} />
-          <Route path="/tools/gpa" element={<ProtectedRoute><GpaCalculator /></ProtectedRoute>} />
-          <Route path="/tools/sandbox" element={<ProtectedRoute><CodeSandbox /></ProtectedRoute>} />
-          <Route path="/tools/resume-ats" element={<ProtectedRoute><ResumeAtsChecker /></ProtectedRoute>} />
-          <Route path="/tools/kaggle" element={<ProtectedRoute><KaggleExplorer /></ProtectedRoute>} />
-          <Route path="/tools/speaking" element={<ProtectedRoute><SpeakingPractice /></ProtectedRoute>} />
-          <Route path="/tools/mock-interview" element={<ProtectedRoute><MockInterview /></ProtectedRoute>} />
-          <Route path="/tools/cover-letter" element={<ProtectedRoute><CoverLetterGenerator /></ProtectedRoute>} />
-          <Route path="/tools/linkedin" element={<ProtectedRoute><LinkedInOptimizer /></ProtectedRoute>} />
-          <Route path="/tools/flashcards" element={<ProtectedRoute><FlashcardGenerator /></ProtectedRoute>} />
-          <Route path="/tools/quiz" element={<ProtectedRoute><QuizGenerator /></ProtectedRoute>} />
-          <Route path="/tools/youtube" element={<ProtectedRoute><YouTubeSummarizer /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/*" element={<ProtectedShell />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
@@ -134,3 +93,4 @@ function App() {
 }
 
 export default App
+

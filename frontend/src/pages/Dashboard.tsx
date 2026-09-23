@@ -12,7 +12,8 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  Layers
+  Layers,
+  User as UserIcon
 } from 'lucide-react'
 import MemoryPanel from '../components/memory/MemoryPanel'
 import HabitsSection from '../components/habits/HabitsSection'
@@ -46,6 +47,7 @@ interface ActivityGroup {
   actionSummary: string
   timeAgo: string
   items: string[]
+  isUser?: boolean
 }
 
 interface DashboardStats {
@@ -156,7 +158,7 @@ function Dashboard() {
 
         if (!groupedMap.has(key)) {
           groupedMap.set(key, {
-            agent: log.agent_name || 'System',
+            agent: log.agent_name || 'User',
             time: timeStr,
             descriptions: []
           })
@@ -168,7 +170,7 @@ function Dashboard() {
         const theme = getAgentTheme(value.agent)
         const count = value.descriptions.length
 
-        let summary = value.descriptions[0] || `${theme.name} performed an action`
+        let summary = value.descriptions[0] || (theme.isUser ? 'Action completed' : `${theme.name} performed an action`)
         if (count > 1) {
           const taskLogs = value.descriptions.filter(d => d.toLowerCase().includes('created task:'))
           const goalLog = value.descriptions.find(d => d.toLowerCase().includes('created goal:'))
@@ -179,23 +181,25 @@ function Dashboard() {
             if (match) goalTitle = match[1]
           }
 
+          const actorName = theme.isUser ? 'You' : theme.name
           if (taskLogs.length > 0 && goalTitle) {
-            summary = `${theme.name} created ${taskLogs.length} tasks for '${goalTitle}'`
+            summary = `${actorName} created ${taskLogs.length} tasks for '${goalTitle}'`
           } else if (taskLogs.length > 0) {
-            summary = `${theme.name} created ${taskLogs.length} tasks`
+            summary = `${actorName} created ${taskLogs.length} tasks`
           } else {
-            summary = `${theme.name} executed ${count} automated actions`
+            summary = `${actorName} performed ${count} actions`
           }
         }
 
         return {
           id: key,
           agentName: theme.name,
-          agentIcon: Bot,
+          agentIcon: theme.isUser ? UserIcon : Bot,
           badgeColor: theme.badge,
           actionSummary: summary,
           timeAgo: value.time,
-          items: value.descriptions
+          items: value.descriptions,
+          isUser: theme.isUser
         }
       })
 
@@ -364,8 +368,8 @@ function Dashboard() {
           pendingTasksCount={pendingTasks.length}
         />
 
-        {/* 2. PROMINENT AI AUTOMATION FEED (Moved right after Hero for instant proof of AI work) */}
-        <div className='bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border-2 border-indigo-500/30 dark:border-indigo-500/40 shadow-md space-y-4 transition-colors duration-200'>
+        {/* 2. PROMINENT RECENT ACTIVITY FEED */}
+        <div className='bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4 transition-colors duration-200'>
           <div className='flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3.5'>
             <div className='flex items-center gap-2.5'>
               <div className='p-1.5 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl text-indigo-600 dark:text-indigo-400'>
@@ -373,13 +377,13 @@ function Dashboard() {
               </div>
               <div>
                 <h2 className='text-base font-serif font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2'>
-                  <span>AI Automation Feed</span>
+                  <span>Recent Activity</span>
                   <span className='text-[10px] uppercase font-sans tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-extrabold'>
-                    ⚡ AI Active
+                    ⚡ Live
                   </span>
                 </h2>
                 <p className='text-xs text-slate-500 dark:text-slate-400 font-sans'>
-                  Real-time actions executed by Redora AI agents for your goals
+                  Real-time updates of your actions and AI agent automations
                 </p>
               </div>
             </div>
@@ -394,10 +398,13 @@ function Dashboard() {
 
           <div className='space-y-3'>
             {activityGroups.length === 0 ? (
-              <div className='text-center py-6 text-slate-400 dark:text-slate-500 text-xs'>No recent agent batch activity.</div>
+              <div className='text-center py-6 text-slate-400 dark:text-slate-500 text-xs'>
+                No recent activity recorded yet. Start by creating a task, goal, or chatting with an AI agent!
+              </div>
             ) : (
-              activityGroups.slice(0, 3).map((group) => {
+              activityGroups.slice(0, 5).map((group) => {
                 const isExpanded = expandedGroupIds.has(group.id)
+                const IconComponent = group.agentIcon || (group.isUser ? UserIcon : Bot)
                 return (
                   <div key={group.id} className='bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden text-xs transition-all'>
                     <div
@@ -405,9 +412,12 @@ function Dashboard() {
                       className='p-3.5 flex items-center justify-between cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors'
                     >
                       <div className='flex items-center gap-3 min-w-0'>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${group.badgeColor}`}>
-                          {group.agentName}
-                        </span>
+                        <div className='flex items-center gap-1.5 shrink-0'>
+                          <IconComponent className={`w-3.5 h-3.5 ${group.isUser ? 'text-slate-600 dark:text-slate-300' : 'text-indigo-600 dark:text-indigo-400'}`} />
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${group.badgeColor}`}>
+                            {group.agentName}
+                          </span>
+                        </div>
                         <span className='font-semibold text-slate-800 dark:text-slate-200 truncate'>{group.actionSummary}</span>
                       </div>
                       <div className='flex items-center gap-2 text-slate-400 dark:text-slate-500 shrink-0'>

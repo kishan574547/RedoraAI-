@@ -69,7 +69,7 @@ async def search_datasets(
                 )
             return resp.json()
         except httpx.RequestError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to communicate with Kaggle API: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to communicate with Kaggle API.")
 
 @router.get("/competitions/list")
 async def list_competitions(
@@ -97,4 +97,4 @@ async def list_competitions(
                 )
             return resp.json()
         except httpx.RequestError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to communicate with Kaggle API: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to communicate with Kaggle API.")

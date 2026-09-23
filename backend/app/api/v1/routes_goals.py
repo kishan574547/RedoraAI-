@@ -148,6 +148,7 @@ async def update_goal(
         )
     
     status_changed = goal_data.status is not None and goal_data.status != goal.status
+    title_changed = goal_data.title is not None and goal_data.title != goal.title
 
     if goal_data.title is not None:
         goal.title = goal_data.title
@@ -160,19 +161,25 @@ async def update_goal(
     if goal_data.is_template is not None:
         goal.is_template = goal_data.is_template
 
-    from app.db.models.activity_log import ActivityLog
-    if status_changed:
-        action_desc = f"Updated goal status to {goal.status}: '{goal.title}'"
-    else:
-        action_desc = f"Updated goal: '{goal.title}'"
-    
-    activity = ActivityLog(
-        user_id=current_user.id,
-        agent_name="User",
-        action_description=action_desc,
-        related_goal_id=goal.id
-    )
-    db.add(activity)
+    if status_changed or title_changed:
+        from app.db.models.activity_log import ActivityLog
+        if status_changed:
+            if goal.status == "completed":
+                action_desc = f"Completed goal: '{goal.title}'"
+            elif goal.status == "in_progress":
+                action_desc = f"Started goal: '{goal.title}'"
+            else:
+                action_desc = f"Updated goal status to {goal.status}: '{goal.title}'"
+        else:
+            action_desc = f"Updated goal: '{goal.title}'"
+        
+        activity = ActivityLog(
+            user_id=current_user.id,
+            agent_name="User",
+            action_description=action_desc,
+            related_goal_id=goal.id
+        )
+        db.add(activity)
 
     db.commit()
     db.refresh(goal)

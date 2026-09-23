@@ -43,7 +43,7 @@ async def api_calculate_gpa(
         return result
     except Exception as e:
         logger.error(f"Error calculating GPA: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Invalid subjects data: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid subjects data. Please verify credits and grade points.")
 
 
 @router.post("/save")
@@ -81,7 +81,7 @@ async def api_save_gpa(
     except Exception as e:
         db.rollback()
         logger.error(f"Error saving GPA record: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Failed to save GPA record: {str(e)}")
+        raise HTTPException(status_code=400, detail="Failed to save GPA record.")
 
 
 @router.get("/history")

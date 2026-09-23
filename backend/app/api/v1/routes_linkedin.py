@@ -106,4 +106,4 @@ async def api_optimize_linkedin(
         raise
     except Exception as e:
         logger.exception("Error optimizing LinkedIn profile")
-        raise HTTPException(status_code=500, detail=f"Failed to optimize profile: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to optimize LinkedIn profile. Please try again.")

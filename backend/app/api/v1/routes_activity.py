@@ -10,9 +10,10 @@ from app.core.deps import get_current_user
 router = APIRouter()
 
 
+@router.get("", response_model=List[ActivityLogResponse])
 @router.get("/", response_model=List[ActivityLogResponse])
 async def get_activities(
-    limit: int = 20,
+    limit: int = 50,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

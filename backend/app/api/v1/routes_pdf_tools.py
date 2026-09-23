@@ -55,7 +55,7 @@ async def api_merge_pdfs(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error merging PDFs")
-        raise HTTPException(status_code=500, detail=f"Failed to merge PDFs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to merge PDFs. Please check the uploaded files and try again.")
 
 
 @router.post("/split")
@@ -87,7 +87,7 @@ async def api_split_pdf(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error splitting PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to split PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to split PDF. Please check the file and page range.")
 
 
 @router.post("/compress")
@@ -110,7 +110,7 @@ async def api_compress_pdf(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error compressing PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to compress PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to compress PDF.")
 
 
 @router.post("/to-word")
@@ -134,7 +134,7 @@ async def api_pdf_to_word(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error converting PDF to Word")
-        raise HTTPException(status_code=500, detail=f"Failed to convert PDF to Word: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to convert PDF to Word.")
 
 
 @router.post("/word-to-pdf")
@@ -158,7 +158,7 @@ async def api_word_to_pdf(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error converting Word to PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to convert Word to PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to convert Word document to PDF.")
 
 
 @router.post("/extract-text")
@@ -177,7 +177,7 @@ async def api_extract_text(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error extracting text from PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to extract text: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to extract text from PDF.")
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ async def api_rotate_pdf(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error rotating PDF pages")
-        raise HTTPException(status_code=500, detail=f"Failed to rotate PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to rotate PDF pages.")
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ async def api_add_watermark(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error adding watermark to PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to add watermark: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to add watermark to PDF.")
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +267,7 @@ async def api_add_password(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error adding password to PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to add password: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to add password to PDF.")
 
 
 @router.post("/remove-password")
@@ -293,7 +293,7 @@ async def api_remove_password(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error removing password from PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to remove password: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to unlock PDF.")
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +338,7 @@ async def api_organize_pdf(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error organizing PDF pages")
-        raise HTTPException(status_code=500, detail=f"Failed to organize pages: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to organize PDF pages.")
 
 
 # ---------------------------------------------------------------------------
@@ -372,4 +372,4 @@ async def api_image_to_pdf(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error converting images to PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to convert images to PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to convert images to PDF.")

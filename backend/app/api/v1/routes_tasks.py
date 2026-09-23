@@ -127,6 +127,7 @@ async def update_task(
         )
     
     status_changed = task_data.status is not None and task_data.status != task.status
+    title_changed = task_data.title is not None and task_data.title != task.title
 
     if task_data.title is not None:
         task.title = task_data.title
@@ -139,19 +140,25 @@ async def update_task(
     if task_data.google_calendar_event_id is not None:
         task.google_calendar_event_id = task_data.google_calendar_event_id
 
-    from app.db.models.activity_log import ActivityLog
-    if status_changed:
-        action_desc = f"Completed task: '{task.title}'" if task.status == "completed" else f"Updated task status to {task.status}: '{task.title}'"
-    else:
-        action_desc = f"Updated task: '{task.title}'"
-    
-    activity = ActivityLog(
-        user_id=current_user.id,
-        agent_name="User",
-        action_description=action_desc,
-        related_task_id=task.id
-    )
-    db.add(activity)
+    if status_changed or title_changed:
+        from app.db.models.activity_log import ActivityLog
+        if status_changed:
+            if task.status == "completed":
+                action_desc = f"Completed task: '{task.title}'"
+            elif task.status == "pending":
+                action_desc = f"Reopened task: '{task.title}'"
+            else:
+                action_desc = f"Updated task status to {task.status}: '{task.title}'"
+        else:
+            action_desc = f"Updated task: '{task.title}'"
+        
+        activity = ActivityLog(
+            user_id=current_user.id,
+            agent_name="User",
+            action_description=action_desc,
+            related_task_id=task.id
+        )
+        db.add(activity)
 
     db.commit()
     db.refresh(task)

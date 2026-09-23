@@ -75,4 +75,4 @@ async def api_run_code(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Code execution error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Code execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Code execution failed. Please check your code and try again.")

@@ -1,28 +1,68 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import text
+
 from app.api.v1.router import api_router
 from app.db.models import Base
 from app.db.session import engine
+from app.core.config import settings
 from app.core.logging import logger
 
-app = FastAPI(title="Redora AI API", version="1.0.0", description="Redora AI backend server with strict security isolation.")
+app = FastAPI(
+    title="Redora AI API",
+    version="1.0.0",
+    description="Redora AI backend server with strict security isolation.",
+    docs_url="/docs" if settings.ENVIRONMENT != "production" else None,
+    redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
+    openapi_url="/openapi.json" if settings.ENVIRONMENT != "production" else None,
+)
 
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(self), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self' http://localhost:* http://127.0.0.1:*; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' https: data:; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "script-src 'self' 'unsafe-inline'; "
+            "connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://*.supabase.co https://generativelanguage.googleapis.com https://openrouter.ai;"
+        )
+        return response
+
+
+# Security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Locked-down CORS middleware (allows configured domains + any localhost port in dev)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "https://redora-ai.vercel.app",
-    ],
-    allow_origin_regex=r"https://.*\.vercel\.app|https://.*\.onrender\.com|http://localhost:.*|http://127\.0\.0\.1:.*",
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
-    expose_headers=["*"],
+    expose_headers=["Content-Disposition", "Retry-After"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled internal exception on {request.method} {request.url.path}: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An internal server error occurred. Please try again later."}
+    )
+
 
 app.include_router(api_router, prefix="/api/v1")
 
@@ -82,7 +122,6 @@ def on_startup():
         except Exception:
             pass
     logger.info("Database schema initialized and verified.")
-
 
 
 @app.get("/")

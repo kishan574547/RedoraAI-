@@ -115,7 +115,7 @@ async def start_mock_interview(
         raise
     except Exception as e:
         logger.exception(f"[MockInterview API Error] Failed to start interview session: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to start mock interview: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to start mock interview session. Please try again.")
 
 
 @router.post("/answer")
@@ -176,6 +176,19 @@ async def answer_mock_interview_question(
             session.summary_feedback = summary
             session.status = "completed"
             session.completed_at = datetime.utcnow()
+
+            try:
+                from app.db.models.activity_log import ActivityLog
+                role_label = session.persona_role or session.difficulty_level or "Target Role"
+                act = ActivityLog(
+                    user_id=current_user.id,
+                    agent_name="career",
+                    action_description=f"Completed mock interview session for '{role_label}'"
+                )
+                db.add(act)
+            except Exception:
+                pass
+
             db.commit()
             db.refresh(session)
 
@@ -209,6 +222,19 @@ async def answer_mock_interview_question(
             session.summary_feedback = summary
             session.status = "completed"
             session.completed_at = datetime.utcnow()
+
+            try:
+                from app.db.models.activity_log import ActivityLog
+                role_label = session.persona_role or session.difficulty_level or "Target Role"
+                act = ActivityLog(
+                    user_id=current_user.id,
+                    agent_name="career",
+                    action_description=f"Completed mock interview session for '{role_label}'"
+                )
+                db.add(act)
+            except Exception:
+                pass
+
             db.commit()
             db.refresh(session)
 
@@ -245,7 +271,7 @@ async def answer_mock_interview_question(
         raise
     except Exception as e:
         logger.exception(f"[MockInterview API Error] Failed to submit answer: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to process answer: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to process interview answer. Please try again.")
 
 
 @router.get("/history")

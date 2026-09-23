@@ -26,7 +26,8 @@ def fetch_supabase_jwks(force_refresh: bool = False) -> Dict[str, Any]:
         base_url = settings.SUPABASE_URL.rstrip('/')
         jwks_url = f"{base_url}/auth/v1/.well-known/jwks.json"
     else:
-        jwks_url = "https://ywcdkmmpvgyfxmjdawul.supabase.co/auth/v1/.well-known/jwks.json"
+        logger.warning("SUPABASE_URL not configured. Cannot fetch JWKS public keys.")
+        return JWKS_CACHE
 
     try:
         req = urllib.request.Request(jwks_url, headers={"User-Agent": "RedoraAI-Backend/1.0"})

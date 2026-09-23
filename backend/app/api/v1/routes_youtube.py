@@ -202,7 +202,7 @@ async def api_summarize_youtube(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error fetching YouTube transcript")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch transcript: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch YouTube transcript. The video may not have captions enabled.")
 
     try:
         # Truncate to ~12,000 chars to stay within token limits
@@ -259,4 +259,4 @@ async def api_summarize_youtube(
         raise
     except Exception as e:
         logger.exception("Error summarizing YouTube video")
-        raise HTTPException(status_code=500, detail=f"Failed to summarize video: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to summarize YouTube video.")

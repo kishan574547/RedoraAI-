@@ -152,4 +152,4 @@ async def api_generate_quiz(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error generating quiz")
-        raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate quiz. Please try again.")

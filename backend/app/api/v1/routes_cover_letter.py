@@ -8,6 +8,9 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, R
 from pydantic import BaseModel, Field
 
 from app.db.models.user import User
+from app.db.models.activity_log import ActivityLog
+from app.db.session import get_db
+from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.agents.base_agent import call_llm
 from app.core.logging import logger
@@ -100,7 +103,8 @@ async def api_generate_cover_letter(
     job_description: str = Form(...),
     resume_text: str = Form(default=""),
     resume_file: Optional[UploadFile] = File(default=None),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Generate a tailored cover letter from resume + job description."""
     try:
@@ -137,6 +141,18 @@ async def api_generate_cover_letter(
             append_common_prompt=False
         )
 
+        # Log Activity
+        try:
+            activity = ActivityLog(
+                user_id=current_user.id,
+                agent_name="career",
+                action_description="Generated tailored cover letter"
+            )
+            db.add(activity)
+            db.commit()
+        except Exception:
+            pass
+
         return {"cover_letter": cover_letter.strip()}
 
     except HTTPException:
@@ -145,7 +161,7 @@ async def api_generate_cover_letter(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error generating cover letter")
-        raise HTTPException(status_code=500, detail=f"Failed to generate cover letter: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate cover letter. Please try again.")
 
 
 @router.post("/export-pdf")
@@ -167,4 +183,4 @@ async def api_export_cover_letter_pdf(
         raise
     except Exception as e:
         logger.exception("Error exporting cover letter PDF")
-        raise HTTPException(status_code=500, detail=f"Failed to export PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to export PDF.")

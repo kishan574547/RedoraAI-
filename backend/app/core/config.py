@@ -25,7 +25,17 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     SUPABASE_JWT_SECRET: Optional[str] = None
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    ENVIRONMENT: str = "production"
+    ALLOWED_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "https://redora-ai.vercel.app",
+    ]
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 10
+    RATE_LIMIT_AI_PER_MINUTE: int = 30
 
     class Config:
         env_file = ".env"

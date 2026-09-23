@@ -52,7 +52,7 @@ async def create_habit(
     # Log Activity
     act = ActivityLog(
         user_id=current_user.id,
-        agent_name="productivity",
+        agent_name="User",
         action_description=f"Created habit: '{new_habit.name}'"
     )
     db.add(act)
@@ -90,7 +90,7 @@ async def complete_habit(
     # Log Activity
     act = ActivityLog(
         user_id=current_user.id,
-        agent_name="productivity",
+        agent_name="User",
         action_description=f"Completed habit '{habit.name}' (🔥 {habit.streak_count} day streak!)"
     )
     db.add(act)

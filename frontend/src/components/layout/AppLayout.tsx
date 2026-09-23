@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { NetworkStatusBanner } from '../ui/UIStates'
 import { ThemeToggle } from '../ui/ThemeToggle'
-
+import { useToolSession } from '../../context/ToolSessionContext'
 import { supabase } from '../../lib/supabaseClient'
 
 interface AppLayoutProps {
@@ -36,11 +36,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const toolSession = useToolSession()
 
   const handleLogout = () => {
     supabase.auth.signOut().catch(() => {})
     localStorage.removeItem('access_token')
     sessionStorage.removeItem('is_logged_in')
+    toolSession?.resetAllToolSessions()
     navigate('/login')
   }
 
@@ -114,18 +116,26 @@ export default function AppLayout({ children }: AppLayoutProps) {
               {toolNavItems.map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
+                const isRunningInBackground = !isActive && Boolean(toolSession?.visitedRoutes?.has(item.path))
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center space-x-3 px-3 py-1.5 rounded-lg transition-all duration-200 group min-h-[36px] ${
+                    className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-all duration-200 group min-h-[36px] ${
                       isActive 
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium' 
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100'
                     }`}
                   >
-                    <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`} />
-                    <span className="font-medium text-xs sm:text-sm">{item.name}</span>
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`} />
+                      <span className="font-medium text-xs sm:text-sm truncate">{item.name}</span>
+                    </div>
+                    {isRunningInBackground && (
+                      <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold shrink-0" title="Running in background">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      </span>
+                    )}
                   </Link>
                 )
               })}
@@ -234,19 +244,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   {toolNavItems.map((item) => {
                     const Icon = item.icon
                     const isActive = location.pathname === item.path
+                    const isRunningInBackground = !isActive && Boolean(toolSession?.visitedRoutes?.has(item.path))
                     return (
                       <Link
                         key={item.path}
                         to={item.path}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center space-x-4 px-4 py-3.5 rounded-xl min-h-[48px] ${
+                        className={`flex items-center justify-between px-4 py-3.5 rounded-xl min-h-[48px] ${
                           isActive 
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold' 
                             : 'text-slate-300 hover:bg-slate-800/60'
                         }`}
                       >
-                        <Icon className="h-5 w-5" />
-                        <span className="font-semibold text-sm">{item.name}</span>
+                        <div className="flex items-center space-x-4 min-w-0">
+                          <Icon className="h-5 w-5 shrink-0" />
+                          <span className="font-semibold text-sm truncate">{item.name}</span>
+                        </div>
+                        {isRunningInBackground && (
+                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Active</span>
+                          </span>
+                        )}
                       </Link>
                     )
                   })}

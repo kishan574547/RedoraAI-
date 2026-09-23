@@ -4,14 +4,20 @@ from app.db.session import get_db
 from app.db.models.user import User
 from app.schemas.auth import UserCreate, UserLogin, Token
 from app.core.security import verify_password, get_password_hash, create_access_token
+from app.core.rate_limiter import limit_auth_endpoint
 
 router = APIRouter()
 
 
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=Token, dependencies=[Depends(limit_auth_endpoint)])
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     # Check if user already exists
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if len(user_data.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long."
+        )
+    existing_user = db.query(User).filter(User.email == user_data.email.strip().lower()).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -21,7 +27,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     # Create new user
     hashed_password = get_password_hash(user_data.password)
     new_user = User(
-        email=user_data.email,
+        email=user_data.email.strip().lower(),
         hashed_password=hashed_password
     )
     db.add(new_user)
@@ -34,10 +40,10 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     return Token(access_token=access_token)
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(limit_auth_endpoint)])
 async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     # Find user by email
-    user = db.query(User).filter(User.email == user_data.email).first()
+    user = db.query(User).filter(User.email == user_data.email.strip().lower()).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

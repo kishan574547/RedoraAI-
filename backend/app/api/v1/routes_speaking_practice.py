@@ -124,7 +124,7 @@ Do NOT include any extra formatting or text outside the JSON.
         logger.exception(f"[SpeakingPractice API Error] Exception during LLM generation: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Speaking agent failure: {str(e)}"
+            detail="Speaking practice agent encountered an issue. Please try again."
         )
 
 

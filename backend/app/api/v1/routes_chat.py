@@ -15,14 +15,14 @@ from app.services.action_extractor import ActionExtractor
 from app.services.document_scanner import document_scanner
 from app.services.embeddings import EmbeddingsService
 from app.services.vector_search import vector_search_service
-from app.core.logging import logger
+from app.core.rate_limiter import limit_ai_endpoint
 
 router = APIRouter()
 orchestrator = Orchestrator()
 action_extractor = ActionExtractor()
 
 
-@router.post("/message", response_model=ChatResponse)
+@router.post("/message", response_model=ChatResponse, dependencies=[Depends(limit_ai_endpoint)])
 async def send_message(
     request: Request,
     file: Optional[UploadFile] = File(None),

@@ -3,6 +3,9 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, R
 from pydantic import BaseModel, Field
 
 from app.db.models.user import User
+from app.db.models.activity_log import ActivityLog
+from app.db.session import get_db
+from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.services.resume_ats_checker import (
     extract_resume_text,
@@ -40,7 +43,8 @@ class ExportResumeRequest(BaseModel):
 async def api_check_resume(
     resume_file: UploadFile = File(...),
     job_description: Optional[str] = Form(default=""),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Analyze resume for ATS compliance, keyword matching, and AI recommendations."""
     if not resume_file.filename:
@@ -72,8 +76,22 @@ async def api_check_resume(
         else:
             overall_score = round(rule_score)
 
+        final_score = min(100, max(0, overall_score))
+
+        # Log Activity
+        try:
+            activity = ActivityLog(
+                user_id=current_user.id,
+                agent_name="career",
+                action_description=f"Analyzed resume for ATS compatibility (Score: {final_score}%)"
+            )
+            db.add(activity)
+            db.commit()
+        except Exception:
+            pass
+
         return {
-            "overall_score": min(100, max(0, overall_score)),
+            "overall_score": final_score,
             "word_count": rule_results["word_count"],
             "raw_text": resume_text,
             "rule_based_results": rule_results["items"],
@@ -85,7 +103,7 @@ async def api_check_resume(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error checking resume ATS score")
-        raise HTTPException(status_code=500, detail=f"Failed to analyze resume: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to analyze resume.")
 
 
 @router.post("/apply-corrections")
@@ -110,7 +128,7 @@ async def api_apply_corrections(
         }
     except Exception as e:
         logger.exception("Error applying resume corrections")
-        raise HTTPException(status_code=500, detail=f"Failed to apply corrections: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to apply corrections.")
 
 
 @router.post("/export-docx")
@@ -128,7 +146,7 @@ async def api_export_docx(
         )
     except Exception as e:
         logger.exception("Error exporting DOCX resume")
-        raise HTTPException(status_code=500, detail=f"Failed to generate Word document: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate Word document.")
 
 
 @router.post("/export-pdf")
@@ -146,7 +164,7 @@ async def api_export_pdf(
         )
     except Exception as e:
         logger.exception("Error exporting PDF resume")
-        raise HTTPException(status_code=500, detail=f"Failed to generate PDF document: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate PDF document.")
 
 
 @router.post("/custom-suggestion")
@@ -164,5 +182,5 @@ async def api_custom_suggestion(
         return {"custom_suggestions": suggestions}
     except Exception as e:
         logger.exception("Error generating custom AI suggestions")
-        raise HTTPException(status_code=500, detail=f"Failed to generate custom suggestion: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate custom suggestion.")
 

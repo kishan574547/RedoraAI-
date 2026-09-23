@@ -353,4 +353,4 @@ async def generate_cards(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Error generating flashcards")
-        raise HTTPException(status_code=500, detail=f"Failed to generate flashcards: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate flashcards. Please try again.")
