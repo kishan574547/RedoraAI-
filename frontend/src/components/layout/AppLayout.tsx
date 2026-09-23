@@ -16,7 +16,12 @@ import {
   Database,
   Settings,
   Mic,
-  Briefcase
+  Briefcase,
+  PenLine,
+  Linkedin,
+  Brain,
+  HelpCircle,
+  Youtube
 } from 'lucide-react'
 import { NetworkStatusBanner } from '../ui/UIStates'
 import { ThemeToggle } from '../ui/ThemeToggle'
@@ -53,6 +58,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { name: 'GPA Calculator', path: '/tools/gpa', icon: Calculator },
     { name: 'Code Sandbox', path: '/tools/sandbox', icon: Code2 },
     { name: 'Resume ATS Checker', path: '/tools/resume-ats', icon: FileCheck },
+    { name: 'Cover Letter', path: '/tools/cover-letter', icon: PenLine },
+    { name: 'LinkedIn Optimizer', path: '/tools/linkedin', icon: Linkedin },
+    { name: 'Flashcards', path: '/tools/flashcards', icon: Brain },
+    { name: 'Quiz Generator', path: '/tools/quiz', icon: HelpCircle },
+    { name: 'YouTube Summarizer', path: '/tools/youtube', icon: Youtube },
     { name: 'Kaggle', path: '/tools/kaggle', icon: Database },
     { name: 'Activity Log', path: '/activity', icon: Activity },
   ]

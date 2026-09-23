@@ -13,7 +13,8 @@ from app.db.models.suggestion import Suggestion
 from app.db.models.gpa_record import GpaRecord
 from app.db.models.mock_interview_session import MockInterviewSession
 from app.db.models.speaking_practice_session import SpeakingPracticeSession
+from app.db.models.flashcard import FlashcardDeck, Flashcard
 
-__all__ = ["Base", "User", "Memory", "Task", "Goal", "Conversation", "ActivityLog", "Habit", "ChatSession", "SessionDocument", "ResourceLink", "PracticeQuestion", "Suggestion", "GpaRecord", "MockInterviewSession", "SpeakingPracticeSession"]
+__all__ = ["Base", "User", "Memory", "Task", "Goal", "Conversation", "ActivityLog", "Habit", "ChatSession", "SessionDocument", "ResourceLink", "PracticeQuestion", "Suggestion", "GpaRecord", "MockInterviewSession", "SpeakingPracticeSession", "FlashcardDeck", "Flashcard"]
 
 

@@ -1,5 +1,27 @@
 from fastapi import APIRouter
-from app.api.v1 import routes_auth, routes_chat, routes_chat_sessions, routes_tasks, routes_goals, routes_memory, routes_activity, routes_habits, routes_suggestions, routes_pdf_tools, routes_gpa, routes_code_sandbox, routes_resume_ats, routes_kaggle, routes_speaking_practice, routes_mock_interview
+from app.api.v1 import (
+    routes_auth,
+    routes_chat,
+    routes_chat_sessions,
+    routes_tasks,
+    routes_goals,
+    routes_memory,
+    routes_activity,
+    routes_habits,
+    routes_suggestions,
+    routes_pdf_tools,
+    routes_gpa,
+    routes_code_sandbox,
+    routes_resume_ats,
+    routes_kaggle,
+    routes_speaking_practice,
+    routes_mock_interview,
+    routes_cover_letter,
+    routes_linkedin,
+    routes_flashcards,
+    routes_quiz,
+    routes_youtube,
+)
 
 api_router = APIRouter()
 
@@ -19,7 +41,8 @@ api_router.include_router(routes_resume_ats.router, prefix="/tools/resume-ats", 
 api_router.include_router(routes_kaggle.router, prefix="/tools/kaggle", tags=["kaggle"])
 api_router.include_router(routes_speaking_practice.router, prefix="/tools/speaking-practice", tags=["speaking-practice"])
 api_router.include_router(routes_mock_interview.router, prefix="/tools/mock-interview", tags=["mock-interview"])
-
-
-
-
+api_router.include_router(routes_cover_letter.router, prefix="/tools/cover-letter", tags=["cover-letter"])
+api_router.include_router(routes_linkedin.router, prefix="/tools/linkedin", tags=["linkedin"])
+api_router.include_router(routes_flashcards.router, prefix="/tools/flashcards", tags=["flashcards"])
+api_router.include_router(routes_quiz.router, prefix="/tools/quiz", tags=["quiz"])
+api_router.include_router(routes_youtube.router, prefix="/tools/youtube", tags=["youtube"])
